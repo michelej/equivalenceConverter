@@ -7,7 +7,7 @@ import simplelogging # Libreria de logs
 import datetime  # Fechas
 import ntpath   # Rutas
 import time
-
+import xlwings as xw
 
 class NullValue(Exception):   
    pass
@@ -24,7 +24,7 @@ class CriticalError(Exception):
 class InvalidFormat(Exception):
    pass
 
-config_file = "fichero_equivalencias.xlsx"  # fichero de equivalencias
+#config_file = "fichero_equivalencias.xlsx"  # fichero de equivalencias
 
 log = None
 logger_console = False  # log to console
@@ -48,7 +48,7 @@ def main():
 
     error_format_match = False
 
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 5:
         print("ERROR : faltan argumentos..  <Tipo Proceso> <ID Proceso> <Fichero> <Directorio Destino>")
     else:
         start_time = time.time()
@@ -56,6 +56,7 @@ def main():
         process_id = sys.argv[2]  # ID del tipo
         input_file = sys.argv[3] # Fichero a procesar
         output_dir = sys.argv[4] # Direccion donde dejar el fichero
+        config_file = sys.argv[5] # Fichero de equivalencias
                                
         if not os.path.exists(output_dir):
             print("ERROR : No se encuentra la carpeta de destino: " + output_dir)
@@ -97,7 +98,20 @@ def main():
 
         
         log.info("Procesando fichero: " + input_file)
-        dataExcel = pd.read_excel(input_file, sheet_name=0, header=None)                                       
+        
+        file_extension = os.path.splitext(input_file)
+        dataExcel = None
+        try:
+            if(file_extension[1] == ".csv"):
+                dataExcel = pd.read_csv(input_file,  header=None)
+            else:
+                wb = xw.Book(input_file)
+                active_sheet_name = wb.sheets.active.name                
+                dataExcel = pd.read_excel(input_file, sheet_name=active_sheet_name, header=None)
+        except Exception as e: 
+            print("ERROR : No se pudo abrir el fichero")
+            return        
+        
         finished = False
         index = 0
         outputData = []                                   
@@ -112,15 +126,15 @@ def main():
                 errorsFound = False 
                 row_isin = ""
                 for j in range(len(fields)):                                         
-                    try:                                  
-                        dataResult = convert_function(formulas[i], dataExcel, index ,True if j==0 else False)  # Datos                                                                    
-                        if(not pd.isna(field_types[i])):
-                            
-                            if(field_types[i] == "string"): # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
-                                dataResult = str(dataResult)
-
-                            if(not check_field_type(dataResult,field_types[i])):
-                                raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")
+                    try:
+                        dataResult=None                         
+                        if(not pd.isna(formulas[i])):
+                            dataResult = convert_function(formulas[i], dataExcel, index ,True if j==0 else False)  # Datos                                                                                            
+                            if(not pd.isna(field_types[i])):                            
+                                if(field_types[i] == "string"): # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
+                                    dataResult = str(dataResult)
+                                if(not check_field_type(dataResult,field_types[i])):
+                                    raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")                        
                         rowResult.append(dataResult)  
                         if(i==1):
                             row_isin = dataResult
@@ -158,28 +172,33 @@ def main():
                     
         if(len(outputData)>0):
             resultExcel = pd.DataFrame(outputData,columns=fields)
-            historyExcel = load_excel(output_dir+output_file,fields) 
+            resultExcel.drop_duplicates(keep='first', inplace=True)       
+
+            historyExcel = load_excel(output_dir+output_file,fields)                         
             finalExcel = None
-            equalRows = pd.DataFrame(columns=['ISIN'])
+            equalRows = pd.DataFrame(columns=['ISIN'])            
             if(not historyExcel.empty):
-                historyExcel = historyExcel.dropna(how='all')
-                finalExcel=historyExcel.append(resultExcel)                                                        
+                historyExcel = historyExcel.dropna(how='all')                
+                finalExcel=historyExcel.append(resultExcel)                                                                        
             else:
                 finalExcel=resultExcel                    
-            
-            finalExcel.drop_duplicates(keep=False, inplace=True)
-            finalExcel.reset_index(drop=True, inplace=True)
+                        
+            finalExcel.drop_duplicates(keep='first', inplace=True)
+            finalExcel.reset_index(drop=True, inplace=True)             
 
             equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]
-            equalRows.reset_index(drop=True, inplace=True)
+            equalRows.reset_index(drop=True, inplace=True)                        
 
-            finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)
-            finalExcel.reset_index(drop=True, inplace=True)
+
+            finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)            
+            finalExcel.reset_index(drop=True, inplace=True)            
+            
 
             copyFinalExcel = finalExcel
             newsExcel = copyFinalExcel.append(resultExcel)
             newsExcel = newsExcel[newsExcel.duplicated()]
-         
+            
+                                 
             flag_data = False
             if(not finalExcel.empty):
                 if(save_excel(output_dir+output_file, finalExcel)):

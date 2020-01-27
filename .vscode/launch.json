@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "Python 1",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/equivalenceConverter.py",
+            "console": "integratedTerminal",
+            "args" : ["FINALES_TRADICIONALES", "16" , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\Aberdeen Standard SICAV I Distribution Summary 30.06.2019.xlsx" 
+                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        },
+        {
+            "name": "Python 2",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/equivalenceConverter.py",
+            "console": "integratedTerminal",
+            "args" : ["FINALES_UK", "16" , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\266850 GMAI Confirmed Rates XD 1.5.2019.xlsx" 
+                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        }
+    ]
+}
