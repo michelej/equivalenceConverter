@@ -1,0 +1,123 @@
+##########################################################
+    Excel - Equivalencias
+##########################################################
+
+Para representar las equivalencias se utilizara el formato JSON, en cada celda se incluira un texto con este formato.
+    https://es.wikipedia.org/wiki/JSON
+
+
+Funciones:
+Las funciones disponibles para determinar las columnas del excel resultante.
+
+- VALUE  
+Sirve para representar una columna COMPLETA indicando una posicion inicial, normalmente seria una columna y un fila.
+    col = columna
+    below-text = Busca el texto en la columna indicada, y empieza desde la fila siguiente (+1).
+    row = Empieza desda la fila indicada
+    add-rows = se le suma a la fila la cantidad especificada.
+    prepend = agrega al INICIO del valor el texto indicado.
+    append = agrega al FINAL del valor el texto indicado.
+    
+
+{
+    "value":{
+        "col":"11",
+        "below-text":"ISIN Codes"
+    }
+}
+
+- CONSTANT
+Sirve para indicar que la columna sera llenada con un valor constante.
+
+{
+    "constant":"100G"
+}
+
+- POSITION
+Sirve para indicar que la columna sera llenada por un valor que se encuentra en el excel.
+    row = Fila del excel
+    col = Columna del excel
+
+{
+    "position":{
+        "row":"2",
+        "col":"3"
+    }
+}
+
+- MATH
+Representa una funciona matematica que se realizara en base a uno o mas valores que se encuentran en el excel, se representara por cada operando y una funcion a ejecutar.
+    result = Representa la operacion matematica a realizara, se remplazaran los nombres de los operandos usados
+    varX = Los operandos se pueden representar con valores comprendidos desde var1 hasta var99,   
+
+{
+    "math":{
+        "var1":{
+            "value":{
+                "col":"11",
+                "below-text":"Units in Issue"
+            }
+        },
+        "var2":{
+            "value":{
+                "col":"15",
+                "below-text":"Gross Rate"
+            }
+        },
+        "result":"(var2*100)/var1"
+    }
+}
+
+- DATE
+Representaria una operacion realizada sobre una fecha en concreto.
+En el caso de ser un excel y la fecha no estar en formato fecha se debe especificar el formato en el campo(format)
+    transform = Indica la operacion a realizar ( addDays o subDays )
+    quantity  = Cantidad de dias a modificar
+    value,position = La columna con la fecha a modificar. ( Puede ser value o position)
+
+{
+    "date":{
+        "transform":"addDays"
+        "quantity":"2"
+        "value":{
+            "col":15,
+            "below-text":"Date Starting"
+        },
+        "format":"x%-x%-x%"
+    }
+}
+
+
+Validacion:
+
+En el campo Validacion el fichero de equivalencias se puede indicar un filtro a aplicar, esto serviria para filtrar los datos del excel resultado en base a una columna y un valor dado
+    column = La columna con la que se compara ( deberia ser siempre un tipo value)
+    query  = El texto a comparar
+    type   = El tipo de comparación que vamos a hacer ( equal , diff)
+
+{
+    "filter":{
+        "column":{
+            "value":{
+                "col":15,
+                "below-text":"Share Class Type"
+            }            
+        },
+        "query":"Accumulative"
+        "type":"equal"
+    }
+}
+
+
+###############################################################
+
+Los espacios no importan, asi que lo siguiente equivale a lo mismo:
+
+{"value":{"col":"17", "below-text":"ISIN"}}
+
+{
+	"value":{
+	   "col":"17",
+	   "below-text":"ISIN"
+	}
+}
