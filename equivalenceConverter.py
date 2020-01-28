@@ -84,7 +84,9 @@ def main():
                 campos = configExcel["Campos"]                
                 tipo = configExcel["Tipo"]                                               
                 fields=campos[1:] 
-                fields = fields.dropna(how='all')                  
+                fields = fields.dropna(how='all') 
+                fields = fields.str.strip()                               
+                
                 allFormulas = configExcel[int(process_id)]
                 formulas = allFormulas[1:len(fields)+1]                
                 field_types=tipo[1:len(fields)+1]                
@@ -188,37 +190,37 @@ def main():
             resultExcel = pd.DataFrame(outputData,columns=fields)
             resultExcel.drop_duplicates(keep='first', inplace=True)       
             
-            print(resultExcel)                     
+            #print(resultExcel)                     
             historyExcel = load_excel(output_dir+output_file,fields)    
-            print(historyExcel)                     
+            #print(historyExcel)                     
             finalExcel = None
             equalRows = pd.DataFrame(columns=['ISIN'])
             if(not historyExcel.empty):
                 historyExcel = historyExcel.dropna(how='all')  
-                print(historyExcel)              
-                print(resultExcel)              
+                #print(historyExcel)              
+                #print(resultExcel)              
                 finalExcel=historyExcel.append(resultExcel)                                                                        
             else:
                 finalExcel=resultExcel                    
                         
             finalExcel.drop_duplicates(keep='first', inplace=True)
             finalExcel.reset_index(drop=True, inplace=True)       
-            print(finalExcel)        
+            #print(finalExcel)        
 
             equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
             equalRows.reset_index(drop=True, inplace=True)                      
-            print(equalRows)  
+            #print(equalRows)  
 
             finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
             finalExcel.reset_index(drop=True, inplace=True)            
-            print(finalExcel)
+            #print(finalExcel)
             
 
             copyFinalExcel = finalExcel
             newsExcel = copyFinalExcel.append(resultExcel)
-            print(newsExcel)
+            #print(newsExcel)
             newsExcel = newsExcel[newsExcel.duplicated()]
-            print(newsExcel)
+            #print(newsExcel)
                                  
             flag_data = False
             if(not finalExcel.empty):
