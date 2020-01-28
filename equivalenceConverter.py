@@ -82,13 +82,22 @@ def main():
             configExcel = pd.read_excel(config_file, process_type)
             if set(['Campos', int(process_id)]).issubset(configExcel.columns):
                 campos = configExcel["Campos"]                
-                tipo = configExcel["Tipo"]                                
+                tipo = configExcel["Tipo"]                                               
+                fields=campos[1:] 
+                fields = fields.dropna(how='all')                  
+                allFormulas = configExcel[int(process_id)]
+                formulas = allFormulas[1:len(fields)+1]                
+                field_types=tipo[1:len(fields)+1]                
 
-                field_types=tipo[1:]
-                fields=campos[1:]                                
-                allFormulas = configExcel[int(process_id)]                
-                formulas = allFormulas[1:]
-                filter_func = allFormulas[0]                                
+                index=1                
+                while index < len(field_types):
+                    if(not pd.isna(field_types[index])):
+                        field_types[index]=field_types[index].lower()
+                    index += 1                                
+                filter_func = allFormulas[0]
+
+                validate_field_types(field_types)                                
+                validate_formulas(formulas)
             else:
                 raise Exception("No se han encontrado las columnas necesarias : (Campos ," + process_id + ")")              
         except Exception as e:
@@ -105,9 +114,12 @@ def main():
             if(file_extension[1] == ".csv"):
                 dataExcel = pd.read_csv(input_file,  header=None)
             else:
+                app = xw.App(visible=False)
                 wb = xw.Book(input_file)
                 active_sheet_name = wb.sheets.active.name                
+                app.kill()
                 dataExcel = pd.read_excel(input_file, sheet_name=active_sheet_name, header=None)
+                dataExcel=dataExcel.replace('\n', '',regex=True).replace('\r','',regex=True)
         except Exception as e: 
             print("ERROR : No se pudo abrir el fichero")
             return        
@@ -120,13 +132,14 @@ def main():
         try:
             if(not pd.isna(filter_func)):
                 filter_data_excel(filter_func,dataExcel)            
+                log.info("Filtro aplicado.")
             while not finished:
                 i = 1
                 rowResult = []               
                 errorsFound = False 
-                row_isin = ""
+                row_isin = ""                
                 for j in range(len(fields)):                                         
-                    try:
+                    try:                        
                         dataResult=None                         
                         if(not pd.isna(formulas[i])):
                             dataResult = convert_function(formulas[i], dataExcel, index ,True if j==0 else False)  # Datos                                                                                            
@@ -138,11 +151,10 @@ def main():
                         rowResult.append(dataResult)  
                         if(i==1):
                             row_isin = dataResult
-                    except NullValue as e: 
-                        if(i==1): # Nullvalue en la primera columna es error en toda la fila
-                            log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))                            
-                            errorsFound=True                                                    
-                        rowResult.append(None)                                
+                    except NullValue as e:                         
+                        errorsFound=True                                                
+                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))                                   
+                        rowResult.append("ERROR")                                
                     except InvalidFormat as e:
                         log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + row_isin +")")                                                       
                         rowResult.append("ERROR")
@@ -165,39 +177,48 @@ def main():
 
                 if(errorsFound and index == 0):
                     finished = True      
-                    error_format_match = True                          
+                    error_format_match = True
+                if(index % 5 == 0 ):
+                    log.info("Se han procesado " + str(index) +" filas")
                 index = index + 1     
         except (InvalidFormat,CriticalError) as e:
             error_format_match = True      
-                    
+        
         if(len(outputData)>0):
             resultExcel = pd.DataFrame(outputData,columns=fields)
             resultExcel.drop_duplicates(keep='first', inplace=True)       
-
-            historyExcel = load_excel(output_dir+output_file,fields)                         
+            
+            print(resultExcel)                     
+            historyExcel = load_excel(output_dir+output_file,fields)    
+            print(historyExcel)                     
             finalExcel = None
-            equalRows = pd.DataFrame(columns=['ISIN'])            
+            equalRows = pd.DataFrame(columns=['ISIN'])
             if(not historyExcel.empty):
-                historyExcel = historyExcel.dropna(how='all')                
+                historyExcel = historyExcel.dropna(how='all')  
+                print(historyExcel)              
+                print(resultExcel)              
                 finalExcel=historyExcel.append(resultExcel)                                                                        
             else:
                 finalExcel=resultExcel                    
                         
             finalExcel.drop_duplicates(keep='first', inplace=True)
-            finalExcel.reset_index(drop=True, inplace=True)             
+            finalExcel.reset_index(drop=True, inplace=True)       
+            print(finalExcel)        
 
-            equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]
-            equalRows.reset_index(drop=True, inplace=True)                        
+            equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
+            equalRows.reset_index(drop=True, inplace=True)                      
+            print(equalRows)  
 
-
-            finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)            
+            finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
             finalExcel.reset_index(drop=True, inplace=True)            
+            print(finalExcel)
             
 
             copyFinalExcel = finalExcel
             newsExcel = copyFinalExcel.append(resultExcel)
+            print(newsExcel)
             newsExcel = newsExcel[newsExcel.duplicated()]
-            
+            print(newsExcel)
                                  
             flag_data = False
             if(not finalExcel.empty):
@@ -209,7 +230,7 @@ def main():
                     if(len(res_isins)>0):
                         print("OK")
                         for isin in res_isins:
-                            print(isin + ";OK;"+output_file)
+                            print(isin + ",OK,"+output_file)
                         flag_data = True
                 else:
                     print("ERROR : Fallo en la escritura del fichero de salida.")
@@ -237,7 +258,7 @@ def main():
                     if(len(err_isins)>0):
                         for isin in err_isins:
                             if(not pd.isna(isin)):                            
-                                print(isin +";ERROR;"+incidence_file)     
+                                print(isin +",ERROR,"+incidence_file)     
                         flag_data = True
                 else:
                     print("ERROR : Fallo en la escritura del fichero de incidencias.")                    
@@ -356,7 +377,8 @@ def eval_value(commands, dataExcel, index):
         col = int(commands["col"])-1
     if(commands.get("below-text")):        
         belowText = commands["below-text"]
-        f = dataExcel.index[dataExcel[col] == belowText].tolist()
+        belowText = belowText.lower()
+        f = dataExcel.index[dataExcel[col].str.lower() == belowText].tolist()
         if(len(f) > 0):
             row = f[0]+1  # Si lo consigue dame la siguiente fila
         else:
@@ -559,6 +581,49 @@ def check_empty_row_array(array):
         return True
     else:
         return False
+
+def validate_field_types(field_types):    
+    valid = ["string","number","date"]
+    for tp in field_types:
+        if(not pd.isna(tp)):
+            if(not tp in valid):
+                raise Exception("Se encontro un valor no reconocido para la columna TIPO => ["+tp+"]")
+    
+
+def validate_formulas(formulas):
+    const_values=["col","below-text","row","add-rows","prepend","append"]
+    const_position=["col","row"]
+    const_date = ["transform", "quantity", "format", "value", "position"]
+    const_filter=["column","query","type"]
+    for formula in formulas:
+        if(not pd.isna(formula)):
+            try:
+                commands = json.loads(formula)                
+                for com in commands:
+                    if(com == "value"):
+                        for key in commands["value"]:                        
+                            const_values.index(key)
+                    elif(com == "position"):
+                        for key in commands["position"]:                        
+                            const_position.index(key)
+                    elif(com == "date"):
+                        for key in commands["date"]:                        
+                            const_date.index(key)
+                            if(key == 'value'):
+                                for ikey in commands["date"]["value"]:                        
+                                    const_values.index(ikey)                                
+                    elif(com == "math"):
+                        if(commands["math"]["result"]):
+                            pass
+                        
+                    elif(com == "constant"):
+                        pass
+                    else:
+                        raise Exception("El JSON no es valido => "+ formula)
+                
+            except (ValueError,Exception) as e:  # includes simplejson.decoder.JSONDecodeError
+                raise Exception("El JSON no es valido => "+ formula)
+    
 
 if __name__ == '__main__':
     main()
