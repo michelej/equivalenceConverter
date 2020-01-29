@@ -80,12 +80,12 @@ def main():
                 
         try:
             configExcel = pd.read_excel(config_file, process_type)
+            
             if set(['Campos', int(process_id)]).issubset(configExcel.columns):
                 campos = configExcel["Campos"]                
                 tipo = configExcel["Tipo"]                                               
                 fields=campos[1:] 
-                fields = fields.dropna(how='all') 
-                fields = fields.str.strip()                               
+                fields = fields.dropna(how='all')                 
                 
                 allFormulas = configExcel[int(process_id)]
                 formulas = allFormulas[1:len(fields)+1]                
