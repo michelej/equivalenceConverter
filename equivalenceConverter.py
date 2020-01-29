@@ -230,7 +230,7 @@ def main():
                     if(len(res_isins)>0):
                         print("OK")
                         for isin in res_isins:
-                            print(isin + ",OK,"+output_file)
+                            print(str(isin) + ",OK,"+output_file)
                         flag_data = True
                 else:
                     print("ERROR : Fallo en la escritura del fichero de salida.")
@@ -627,3 +627,4 @@ def validate_formulas(formulas):
 
 if __name__ == '__main__':
     main()
+    os._exit(0)
