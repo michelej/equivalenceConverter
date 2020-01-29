@@ -4,3 +4,5 @@
 /build/
 *.spec
 /__pycache__/
+/.vscode/
+/salida/
