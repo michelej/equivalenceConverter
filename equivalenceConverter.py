@@ -123,7 +123,7 @@ def main():
                 dataExcel = pd.read_excel(input_file, sheet_name=active_sheet_name, header=None)
                 dataExcel=dataExcel.replace('\n', '',regex=True).replace('\r','',regex=True)
         except Exception as e: 
-            print("ERROR : No se pudo abrir el fichero")
+            print("ERROR : No se pudo abrir el fichero a procesar")
             return        
         
         finished = False
@@ -139,7 +139,7 @@ def main():
                 i = 1
                 rowResult = []               
                 errorsFound = False 
-                row_isin = ""                
+                row_isin = None               
                 for j in range(len(fields)):                                         
                     try:                        
                         dataResult=float('NaN')                         
@@ -160,11 +160,13 @@ def main():
                     except NullValue as e:                         
                         errorsFound=True                                                
                         log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))                                   
-                        rowResult.append("ERROR")                                
+                        if(i != 1):
+                            rowResult.append("ERROR")                                
                     except InvalidFormat as e:
-                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + row_isin +")")                                                       
-                        rowResult.append("ERROR")
                         errorsFound=True
+                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + row_isin +")")                                                       
+                        if(i != 1):
+                            rowResult.append("ERROR")                        
                     except EmptyRow as e:                        
                         errorsFound=True
                         rowResult.append(float('NaN'))
@@ -177,7 +179,7 @@ def main():
                         i = i+1                                              
                 if(not errorsFound and not finished):
                     outputData.append(rowResult) 
-                if(errorsFound and not finished):                    
+                if(errorsFound and not finished and pd.notna(row_isin)):                    
                     if(not check_empty_row_array(rowResult)):
                         incidenceData.append(rowResult) 
 
@@ -276,7 +278,7 @@ def main():
                     print("ERROR : Fallo en la escritura del fichero de incidencias.")                    
             
             if(flag_data == False):
-                print("ERROR: No se encontraron datos para procesar")
+                print("NO DATA: No se encontraron datos para procesar")
         else:
             if(error_format_match == True):
                 print("ERROR : El formato para este excel no es correcto: " + process_type + " - " + process_id)
