@@ -142,14 +142,18 @@ def main():
                 row_isin = ""                
                 for j in range(len(fields)):                                         
                     try:                        
-                        dataResult=None                         
+                        dataResult=float('NaN')                         
                         if(not pd.isna(formulas[i])):
                             dataResult = convert_function(formulas[i], dataExcel, index ,True if j==0 else False)  # Datos                                                                                            
                             if(not pd.isna(field_types[i])):                            
                                 if(field_types[i] == "string"): # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
                                     dataResult = str(dataResult)
                                 if(not check_field_type(dataResult,field_types[i])):
-                                    raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")                        
+                                    try:
+                                        dataResult=convert_field_to_type(dataResult,field_types[i])
+                                    except:
+                                        raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")                        
+
                         rowResult.append(dataResult)  
                         if(i==1):
                             row_isin = dataResult
@@ -163,7 +167,7 @@ def main():
                         errorsFound=True
                     except EmptyRow as e:                        
                         errorsFound=True
-                        rowResult.append(None)                                                    
+                        rowResult.append(float('NaN'))
                     except CriticalError as e:
                         errorsFound=True                        
                         finished = True
@@ -186,23 +190,24 @@ def main():
         except (InvalidFormat,CriticalError) as e:
             error_format_match = True      
         
+        flag_ok = False
         if(len(outputData)>0):
-            resultExcel = pd.DataFrame(outputData,columns=fields)
-            resultExcel.drop_duplicates(keep='first', inplace=True)       
-            
-            #print(resultExcel)                     
-            historyExcel = load_excel(output_dir+output_file,fields)    
-            #print(historyExcel)                     
+            resultExcel = pd.DataFrame(outputData,columns=fields)            
+            resultExcel.drop_duplicates(keep='first', inplace=True)                               
+            #print(resultExcel)   
+            historyExcel = load_excel(output_dir+output_file,fields)                
+            #print(historyExcel)   
             finalExcel = None
             equalRows = pd.DataFrame(columns=['ISIN'])
             if(not historyExcel.empty):
                 historyExcel = historyExcel.dropna(how='all')  
-                #print(historyExcel)              
-                #print(resultExcel)              
-                finalExcel=historyExcel.append(resultExcel)                                                                        
+                resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
+                #print(resultExcel)
+                finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
             else:
                 finalExcel=resultExcel                    
-                        
+
+            #print(resultExcel)
             finalExcel.drop_duplicates(keep='first', inplace=True)
             finalExcel.reset_index(drop=True, inplace=True)       
             #print(finalExcel)        
@@ -215,13 +220,10 @@ def main():
             finalExcel.reset_index(drop=True, inplace=True)            
             #print(finalExcel)
             
-
-            copyFinalExcel = finalExcel
-            newsExcel = copyFinalExcel.append(resultExcel)
+            #print(resultExcel)
+            newsExcel = dataframe_difference(resultExcel, finalExcel, "both")
             #print(newsExcel)
-            newsExcel = newsExcel[newsExcel.duplicated()]
-            #print(newsExcel)
-                                 
+                                                         
             flag_data = False
             if(not finalExcel.empty):
                 if(save_excel(output_dir+output_file, finalExcel)):
@@ -231,6 +233,7 @@ def main():
                     res_isins = newsExcel.iloc[:, 0]
                     if(len(res_isins)>0):
                         print("OK")
+                        flag_ok = True
                         for isin in res_isins:
                             print(str(isin) + ",OK,"+output_file)
                         flag_data = True
@@ -240,7 +243,10 @@ def main():
             
             if(len(incidenceData)>0 or not equalRows.empty):
                 incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
-                incidenceExcel.append(equalRows)
+                #print(equalRows)
+                incidenceExcel=pd.concat([incidenceExcel,equalRows])                
+                #print(incidenceExcel)
+
                 historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                 finalIncidenceExcel = None
                 if(not historyIncidenceExcel.empty):                        
@@ -250,14 +256,18 @@ def main():
 
                 finalIncidenceExcel.drop_duplicates(inplace=True) # Los identicos se ignoran
                 finalIncidenceExcel.reset_index(drop=True,inplace=True)                                                                    
+                #print(finalIncidenceExcel)
 
                 newsIncidenceExcel = finalIncidenceExcel.append(historyIncidenceExcel)                    
                 newsIncidenceExcel.drop_duplicates(keep=False,inplace=True)                    
+                #print(newsIncidenceExcel)
 
                 if(save_excel(output_dir+incidence_file,finalIncidenceExcel)):                        
                     log.info("Guardando fichero: "+output_dir+incidence_file)                                                                            
                     err_isins = newsIncidenceExcel.iloc[:, 0]   
                     if(len(err_isins)>0):
+                        if(flag_ok ==False):
+                            print("OK")                        
                         for isin in err_isins:
                             if(not pd.isna(isin)):                            
                                 print(isin +",ERROR,"+incidence_file)     
@@ -479,12 +489,12 @@ def eval_date(commands, dataExcel, index):
             raise e
     else:        
         raise InvalidFormat("[Date] Formato invalido, falta la posicion de la fecha.")
-
-    if(not check_field_type(dateValue,'date')):
-        raise InvalidFormat("[Date] Formato invalido, no se encontro una fecha en la posicion.")
-
+    
     if(isinstance(dateValue, str) and commands.get("format")):                              
         dateValue = datetime.datetime.strptime(dateValue, commands.get("format"))           
+
+    if(not check_field_type(dateValue,'date')):
+        raise InvalidFormat("[Date] Formato invalido, no se encontro una fecha en la posicion.")    
 
     if(commands.get("transform")):
         transform = commands.get("transform")
@@ -563,14 +573,36 @@ def check_field_type(value,field_type):
     elif(field_type == "number"):
         if(isinstance(value, float) or isinstance(value, int)):    
             return True
-    elif(field_type == "date"):        
-        if(isinstance(value, pd._libs.tslibs.timestamps.Timestamp)):
+    elif(field_type == "date"):  
+             
+        if(isinstance(value, pd._libs.tslibs.timestamps.Timestamp) or isinstance(value, datetime.datetime)):
             return True
     else:
         if(not pd.isna(field_type)):        
-            log.warning("Formato no reconocido: "+ field_type)
-        
-    return False
+            log.warning("Formato no reconocido: "+ field_type)        
+            return False
+
+def convert_field_to_type(value,field_type):
+    if(isinstance(value, str)):             
+       if(convert_float(value) != None):
+           return convert_float(value)
+       elif(convert_int(value) != None):
+           return convert_int(value)
+       else:
+           raise InvalidFormat("No se puede convertir a numero") 
+
+def convert_float(value):
+    try:
+        return float(value)
+    except ValueError as e:
+        return None               
+
+def convert_int(value):
+    try:
+        return int(value)
+    except ValueError as e:
+        return None
+
 ################################################################
 ## Verificar si toda la fila esta comprendida por valores vacios
 ################################################################
@@ -625,7 +657,15 @@ def validate_formulas(formulas):
                 
             except (ValueError,Exception) as e:  # includes simplejson.decoder.JSONDecodeError
                 raise Exception("El JSON no es valido => "+ formula)
-    
+
+
+def dataframe_difference(df1, df2, which=None):    
+    comparison_df = df1.merge(df2,indicator=True,how='outer')
+    if which is None:
+        diff_df = comparison_df[comparison_df['_merge'] != 'both']
+    else:
+        diff_df = comparison_df[comparison_df['_merge'] == which]    
+    return diff_df.drop('_merge',axis=1)
 
 if __name__ == '__main__':
     main()
