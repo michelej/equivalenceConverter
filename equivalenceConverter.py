@@ -164,7 +164,7 @@ def main():
                             rowResult.append("ERROR")                                
                     except InvalidFormat as e:
                         errorsFound=True
-                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + row_isin +")")                                                       
+                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_isin) +")")                                                       
                         if(i != 1):
                             rowResult.append("ERROR")                        
                     except EmptyRow as e:                        
@@ -181,9 +181,8 @@ def main():
                     outputData.append(rowResult) 
                 if(errorsFound and not finished and pd.notna(row_isin)):                    
                     if(not check_empty_row_array(rowResult)):
-                        incidenceData.append(rowResult) 
-
-                if(errorsFound and index == 0):
+                        incidenceData.append(rowResult)
+                if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
                     finished = True      
                     error_format_match = True
                 if(index % 5 == 0 ):
@@ -192,98 +191,111 @@ def main():
         except (InvalidFormat,CriticalError) as e:
             error_format_match = True      
         
-        flag_ok = False
-        if(len(outputData)>0):
-            resultExcel = pd.DataFrame(outputData,columns=fields)            
-            resultExcel.drop_duplicates(keep='first', inplace=True)                               
-            #print(resultExcel)   
-            historyExcel = load_excel(output_dir+output_file,fields)                
-            #print(historyExcel)   
-            finalExcel = None
-            equalRows = pd.DataFrame(columns=['ISIN'])
-            if(not historyExcel.empty):
-                historyExcel = historyExcel.dropna(how='all')  
-                resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
+        try:
+            flag_ok = False
+            if(len(outputData)>0):
+                resultExcel = pd.DataFrame(outputData,columns=fields)            
+                resultExcel.drop_duplicates(keep='first', inplace=True)                               
+                #print(resultExcel)   
+                historyExcel = load_excel(output_dir+output_file,fields)                
+                #print(historyExcel)   
+                finalExcel = None
+                equalRows = pd.DataFrame(columns=['ISIN'])
+                if(not historyExcel.empty):
+                    historyExcel = historyExcel.dropna(how='all')  
+
+                    if(not historyExcel.dtypes.equals(resultExcel.dtypes)):                        
+                        raise InvalidFormat("El formato del fichero [output] es diferente al actual")
+
+                    resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
+                    #print(resultExcel)
+                    finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
+                else:
+                    finalExcel=resultExcel                    
+
                 #print(resultExcel)
-                finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
+                finalExcel.drop_duplicates(keep='first', inplace=True)
+                finalExcel.reset_index(drop=True, inplace=True)       
+                #print(finalExcel)        
+
+                equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
+                equalRows.reset_index(drop=True, inplace=True)                      
+                #print(equalRows)  
+
+                finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
+                finalExcel.reset_index(drop=True, inplace=True)            
+                #print(finalExcel)
+                
+                #print(resultExcel)
+                newsExcel = dataframe_difference(resultExcel, finalExcel, "both")
+                #print(newsExcel)
+                                                            
+                flag_data = False
+                if(not finalExcel.empty):
+                    if(save_excel(output_dir+output_file, finalExcel)):
+                        log.info("Guardando fichero: "+output_dir+output_file)
+                        log.info("Proceso finalizado...")                        
+
+                        res_isins = newsExcel.iloc[:, 0]
+                        if(len(res_isins)>0):
+                            print("OK")
+                            flag_ok = True
+                            for isin in res_isins:
+                                print(str(isin) + ",OK,"+output_file)
+                            flag_data = True
+                    else:
+                        print("ERROR : Fallo en la escritura del fichero de salida.")
+                        return
+                
+                if(len(incidenceData)>0 or not equalRows.empty):
+                    incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
+                    #print(equalRows)
+                    incidenceExcel=pd.concat([incidenceExcel,equalRows])                
+                    #print(incidenceExcel)
+
+                    historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
+                    finalIncidenceExcel = None
+                    if(not historyIncidenceExcel.empty):
+                        if(not historyIncidenceExcel.dtypes.equals(incidenceExcel.dtypes)):
+                            raise InvalidFormat("El formato del fichero [incidence] es diferente al actual")
+                        finalIncidenceExcel = historyIncidenceExcel.append(incidenceExcel)                                                    
+                    else:
+                        finalIncidenceExcel = incidenceExcel                                                
+
+                    finalIncidenceExcel.drop_duplicates(inplace=True) # Los identicos se ignoran
+                    finalIncidenceExcel.reset_index(drop=True,inplace=True)                                                                    
+                    #print(finalIncidenceExcel)
+
+                    newsIncidenceExcel = finalIncidenceExcel.append(historyIncidenceExcel)                    
+                    newsIncidenceExcel.drop_duplicates(keep=False,inplace=True)                    
+                    #print(newsIncidenceExcel)
+
+                    if(save_excel(output_dir+incidence_file,finalIncidenceExcel)):                        
+                        log.info("Guardando fichero: "+output_dir+incidence_file)                                                                            
+                        err_isins = newsIncidenceExcel.iloc[:, 0]   
+                        if(len(err_isins)>0):
+                            if(flag_ok ==False):
+                                print("OK")                        
+                            for isin in err_isins:
+                                if(not pd.isna(isin)):                            
+                                    print(isin +",ERROR,"+incidence_file)     
+                            flag_data = True
+                    else:
+                        print("ERROR : Fallo en la escritura del fichero de incidencias.")                    
+                
+                if(flag_data == False):
+                    print("NO DATA: No se encontraron datos para procesar")
             else:
-                finalExcel=resultExcel                    
+                if(error_format_match == True):
+                    print("ERROR : El formato para este excel no es correcto: " + process_type + " - " + process_id)
+                else:    
+                    print("ERROR") 
+        except (InvalidFormat) as e:            
+            print("ERROR : " + str(e))
+        except Exception as e:                
+            log.error(e)
+            print("ERROR : Ha ocurrido un error inesperado.")
 
-            #print(resultExcel)
-            finalExcel.drop_duplicates(keep='first', inplace=True)
-            finalExcel.reset_index(drop=True, inplace=True)       
-            #print(finalExcel)        
-
-            equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
-            equalRows.reset_index(drop=True, inplace=True)                      
-            #print(equalRows)  
-
-            finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
-            finalExcel.reset_index(drop=True, inplace=True)            
-            #print(finalExcel)
-            
-            #print(resultExcel)
-            newsExcel = dataframe_difference(resultExcel, finalExcel, "both")
-            #print(newsExcel)
-                                                         
-            flag_data = False
-            if(not finalExcel.empty):
-                if(save_excel(output_dir+output_file, finalExcel)):
-                    log.info("Guardando fichero: "+output_dir+output_file)
-                    log.info("Proceso finalizado...")                        
-
-                    res_isins = newsExcel.iloc[:, 0]
-                    if(len(res_isins)>0):
-                        print("OK")
-                        flag_ok = True
-                        for isin in res_isins:
-                            print(str(isin) + ",OK,"+output_file)
-                        flag_data = True
-                else:
-                    print("ERROR : Fallo en la escritura del fichero de salida.")
-                    return
-            
-            if(len(incidenceData)>0 or not equalRows.empty):
-                incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
-                #print(equalRows)
-                incidenceExcel=pd.concat([incidenceExcel,equalRows])                
-                #print(incidenceExcel)
-
-                historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
-                finalIncidenceExcel = None
-                if(not historyIncidenceExcel.empty):                        
-                    finalIncidenceExcel = historyIncidenceExcel.append(incidenceExcel)                                                    
-                else:
-                    finalIncidenceExcel = incidenceExcel                                                
-
-                finalIncidenceExcel.drop_duplicates(inplace=True) # Los identicos se ignoran
-                finalIncidenceExcel.reset_index(drop=True,inplace=True)                                                                    
-                #print(finalIncidenceExcel)
-
-                newsIncidenceExcel = finalIncidenceExcel.append(historyIncidenceExcel)                    
-                newsIncidenceExcel.drop_duplicates(keep=False,inplace=True)                    
-                #print(newsIncidenceExcel)
-
-                if(save_excel(output_dir+incidence_file,finalIncidenceExcel)):                        
-                    log.info("Guardando fichero: "+output_dir+incidence_file)                                                                            
-                    err_isins = newsIncidenceExcel.iloc[:, 0]   
-                    if(len(err_isins)>0):
-                        if(flag_ok ==False):
-                            print("OK")                        
-                        for isin in err_isins:
-                            if(not pd.isna(isin)):                            
-                                print(isin +",ERROR,"+incidence_file)     
-                        flag_data = True
-                else:
-                    print("ERROR : Fallo en la escritura del fichero de incidencias.")                    
-            
-            if(flag_data == False):
-                print("NO DATA: No se encontraron datos para procesar")
-        else:
-            if(error_format_match == True):
-                print("ERROR : El formato para este excel no es correcto: " + process_type + " - " + process_id)
-            else:    
-                print("ERROR")            
     elapsed_time = time.time() - start_time
     log.info("Tiempo de ejecución: " + str(elapsed_time) +" segundos")
 ################################################
@@ -388,7 +400,9 @@ def eval_value(commands, dataExcel, index):
     col = 0
     row = 0
     if(commands.get("col")):
-        col = int(commands["col"])-1
+        col = int(commands["col"])-1        
+        if(col not in list(dataExcel.head().index)):
+            raise InvalidFormat("[Value] La columna no es valida para el comando: " + str(commands))
     if(commands.get("below-text")):        
         belowText = commands["below-text"]
         belowText = belowText.lower()
@@ -428,6 +442,8 @@ def eval_position(commands, dataExcel):
     row = 0
     if(commands.get("col")):
         col = int(commands["col"])-1
+        if(col not in list(dataExcel.head().index)):
+            raise InvalidFormat("[Position] La columna no es valida para el comando: " + str(commands))
     if(commands.get("row")):
         row = int(commands["row"])-1
     if(row in dataExcel.index):    
@@ -661,7 +677,7 @@ def validate_formulas(formulas):
                 raise Exception("El JSON no es valido => "+ formula)
 
 
-def dataframe_difference(df1, df2, which=None):    
+def dataframe_difference(df1, df2, which=None):     
     comparison_df = df1.merge(df2,indicator=True,how='outer')
     if which is None:
         diff_df = comparison_df[comparison_df['_merge'] != 'both']
