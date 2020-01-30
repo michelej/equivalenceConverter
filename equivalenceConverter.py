@@ -145,14 +145,17 @@ def main():
                         dataResult=float('NaN')                         
                         if(not pd.isna(formulas[i])):
                             dataResult = convert_function(formulas[i], dataExcel, index ,True if j==0 else False)  # Datos                                                                                            
-                            if(not pd.isna(field_types[i])):                            
-                                if(field_types[i] == "string"): # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
-                                    dataResult = str(dataResult)
-                                if(not check_field_type(dataResult,field_types[i])):
-                                    try:
-                                        dataResult=convert_field_to_type(dataResult,field_types[i])
-                                    except:
-                                        raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")                        
+                            if(not pd.isna(dataResult)):
+                                if(not pd.isna(field_types[i])):                            
+                                    if(field_types[i] == "string"): # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
+                                        dataResult = str(dataResult)
+                                    if(not check_field_type(dataResult,field_types[i])):
+                                        try:
+                                            dataResult=convert_field_to_type(dataResult,field_types[i])
+                                        except:
+                                            raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")                        
+                            else:
+                                dataResult=float('NaN')               
 
                         rowResult.append(dataResult)  
                         if(i==1):
@@ -170,6 +173,7 @@ def main():
                     except EmptyRow as e:                        
                         errorsFound=True
                         rowResult.append(float('NaN'))
+                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))
                     except CriticalError as e:
                         errorsFound=True                        
                         finished = True
@@ -177,7 +181,7 @@ def main():
                         finished = True
                     finally:    
                         i = i+1                                              
-                if(not errorsFound and not finished):
+                if(not errorsFound and not finished and not check_empty_row_array(rowResult)):
                     outputData.append(rowResult) 
                 if(errorsFound and not finished and pd.notna(row_isin)):                    
                     if(not check_empty_row_array(rowResult)):
@@ -196,9 +200,11 @@ def main():
             if(len(outputData)>0):
                 resultExcel = pd.DataFrame(outputData,columns=fields)            
                 resultExcel.drop_duplicates(keep='first', inplace=True)                               
-                #print(resultExcel)   
+                print(resultExcel.dtypes)
+                print(resultExcel)   
                 historyExcel = load_excel(output_dir+output_file,fields)                
-                #print(historyExcel)   
+                print(historyExcel.dtypes)
+                print(historyExcel)   
                 finalExcel = None
                 equalRows = pd.DataFrame(columns=['ISIN'])
                 if(not historyExcel.empty):
@@ -208,27 +214,27 @@ def main():
                         raise InvalidFormat("El formato del fichero [output] es diferente al actual")
 
                     resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
-                    #print(resultExcel)
+                    print(resultExcel)
                     finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
                 else:
                     finalExcel=resultExcel                    
 
-                #print(resultExcel)
+                print(resultExcel)
                 finalExcel.drop_duplicates(keep='first', inplace=True)
                 finalExcel.reset_index(drop=True, inplace=True)       
-                #print(finalExcel)        
+                print(finalExcel)        
 
                 equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
                 equalRows.reset_index(drop=True, inplace=True)                      
-                #print(equalRows)  
+                print(equalRows)  
 
                 finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
                 finalExcel.reset_index(drop=True, inplace=True)            
-                #print(finalExcel)
+                print(finalExcel)
                 
-                #print(resultExcel)
+                print(resultExcel)
                 newsExcel = dataframe_difference(resultExcel, finalExcel, "both")
-                #print(newsExcel)
+                print(newsExcel)
                                                             
                 flag_data = False
                 if(not finalExcel.empty):
@@ -398,10 +404,11 @@ def filter_data_excel(filter_command , dataExcel):
 ###############################################################################
 def eval_value(commands, dataExcel, index):
     col = 0
-    row = 0
+    row = 0    
     if(commands.get("col")):
         col = int(commands["col"])-1        
-        if(col not in list(dataExcel.head().index)):
+        data_top = dataExcel.head()                 
+        if(col not in list(data_top.columns)):
             raise InvalidFormat("[Value] La columna no es valida para el comando: " + str(commands))
     if(commands.get("below-text")):        
         belowText = commands["below-text"]
@@ -417,7 +424,7 @@ def eval_value(commands, dataExcel, index):
     
     if(commands.get("add-rows")):
         row = row+ int(commands.get("add-rows"))
-
+    
     if(row+index in dataExcel.index):
         val = dataExcel.iloc[row+index, col]
         if(not pd.isna(val)):
@@ -426,7 +433,7 @@ def eval_value(commands, dataExcel, index):
             return {"value":val,"col":col,"row":row+index}
         else:     
             if(check_row_ifnull(dataExcel,row+index)):       
-                raise EmptyRow()
+                raise EmptyRow("[Value] Valor en la posicion FILA="+str(row+index+1) + " COLUMNA=" + str(col+1) +" no es valido.")
             else:
                 raise NullValue("[Value] Valor en la posicion FILA="+str(row+index+1) + " COLUMNA=" + str(col+1) +" no es valido.")
     else:             
@@ -442,7 +449,8 @@ def eval_position(commands, dataExcel):
     row = 0
     if(commands.get("col")):
         col = int(commands["col"])-1
-        if(col not in list(dataExcel.head().index)):
+        data_top = dataExcel.head()                 
+        if(col not in list(data_top.columns)):
             raise InvalidFormat("[Position] La columna no es valida para el comando: " + str(commands))
     if(commands.get("row")):
         row = int(commands["row"])-1
@@ -678,7 +686,13 @@ def validate_formulas(formulas):
 
 
 def dataframe_difference(df1, df2, which=None):     
-    comparison_df = df1.merge(df2,indicator=True,how='outer')
+    #df1 = df1.astype(str)
+    print(df1.dtypes)
+    #df2 = df2.astype(str)
+    print(df2.dtypes)
+    comparison_df = df1.merge(df2,indicator=True,how='outer')    
+    print(comparison_df)
+    print(comparison_df.dtypes)
     if which is None:
         diff_df = comparison_df[comparison_df['_merge'] != 'both']
     else:
