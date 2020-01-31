@@ -1,4 +1,5 @@
 import pandas as pd # Panda Excel
+import numpy as np
 import sys 
 import os  
 import math # funciones matematicas
@@ -28,6 +29,8 @@ class InvalidFormat(Exception):
 
 log = None
 logger_console = False  # log to console
+
+pd.set_option("display.precision", 16)
 
 def main():    
     incidence_file = None
@@ -85,17 +88,14 @@ def main():
                 campos = configExcel["Campos"]                
                 tipo = configExcel["Tipo"]                                               
                 fields=campos[1:] 
-                fields = fields.dropna(how='all')                 
+                fields = fields.dropna(how='all')                                 
+                fields = fields.apply(lambda x: x.strip())                               
                 
                 allFormulas = configExcel[int(process_id)]
                 formulas = allFormulas[1:len(fields)+1]                
-                field_types=tipo[1:len(fields)+1]                
-
-                index=1                
-                while index < len(field_types):
-                    if(not pd.isna(field_types[index])):
-                        field_types[index]=field_types[index].lower()
-                    index += 1                                
+                field_types=tipo[1:len(fields)+1]                                
+                field_types = field_types.apply(lambda x: x.lower() if not pd.isna(x) else x)
+                                
                 filter_func = allFormulas[0]
 
                 validate_field_types(field_types)                                
@@ -180,15 +180,20 @@ def main():
                     except EndOfData as e:                        
                         finished = True
                     finally:    
-                        i = i+1                                              
-                if(not errorsFound and not finished and not check_empty_row_array(rowResult)):
-                    outputData.append(rowResult) 
-                if(errorsFound and not finished and pd.notna(row_isin)):                    
-                    if(not check_empty_row_array(rowResult)):
+                        i = i+1  
+                
+                if(not finished and not check_empty_row_array(rowResult)):
+                    # sin error y la fila no esta vacia
+                    if(not errorsFound):  
+                        outputData.append(rowResult)
+                    # con error y isin no es null
+                    elif(errorsFound and pd.notna(row_isin)):                                
                         incidenceData.append(rowResult)
+
                 if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
                     finished = True      
                     error_format_match = True
+
                 if(index % 5 == 0 ):
                     log.info("Se han procesado " + str(index) +" filas")
                 index = index + 1     
@@ -197,44 +202,46 @@ def main():
         
         try:
             flag_ok = False
-            if(len(outputData)>0):
-                resultExcel = pd.DataFrame(outputData,columns=fields)            
-                resultExcel.drop_duplicates(keep='first', inplace=True)                               
-                print(resultExcel.dtypes)
-                print(resultExcel)   
+            if(len(outputData)>0):                
+                resultExcel = pd.DataFrame(outputData,columns=fields)                            
+                resultExcel.drop_duplicates(keep='first', inplace=True)                                          
+
+                #print(resultExcel.dtypes)
+                #print(resultExcel)   
                 historyExcel = load_excel(output_dir+output_file,fields)                
-                print(historyExcel.dtypes)
-                print(historyExcel)   
+                #print(historyExcel.dtypes)
+                #print(historyExcel)   
                 finalExcel = None
                 equalRows = pd.DataFrame(columns=['ISIN'])
                 if(not historyExcel.empty):
                     historyExcel = historyExcel.dropna(how='all')  
 
+                    resultExcel = resultExcel.astype(historyExcel.dtypes.to_dict())
                     if(not historyExcel.dtypes.equals(resultExcel.dtypes)):                        
                         raise InvalidFormat("El formato del fichero [output] es diferente al actual")
 
                     resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
-                    print(resultExcel)
+                    #print(resultExcel)
                     finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
                 else:
                     finalExcel=resultExcel                    
 
-                print(resultExcel)
+                #print(resultExcel)
                 finalExcel.drop_duplicates(keep='first', inplace=True)
                 finalExcel.reset_index(drop=True, inplace=True)       
-                print(finalExcel)        
+                #print(finalExcel)        
 
                 equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
                 equalRows.reset_index(drop=True, inplace=True)                      
-                print(equalRows)  
+                #print(equalRows)  
 
                 finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
                 finalExcel.reset_index(drop=True, inplace=True)            
-                print(finalExcel)
+                #print(finalExcel)
                 
-                print(resultExcel)
+                #print(resultExcel)
                 newsExcel = dataframe_difference(resultExcel, finalExcel, "both")
-                print(newsExcel)
+                #print(newsExcel)
                                                             
                 flag_data = False
                 if(not finalExcel.empty):
@@ -262,6 +269,7 @@ def main():
                     historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                     finalIncidenceExcel = None
                     if(not historyIncidenceExcel.empty):
+                        incidenceExcel = incidenceExcel.astype(historyIncidenceExcel.dtypes.to_dict())
                         if(not historyIncidenceExcel.dtypes.equals(incidenceExcel.dtypes)):
                             raise InvalidFormat("El formato del fichero [incidence] es diferente al actual")
                         finalIncidenceExcel = historyIncidenceExcel.append(incidenceExcel)                                                    
@@ -599,9 +607,11 @@ def check_field_type(value,field_type):
     elif(field_type == "number"):
         if(isinstance(value, float) or isinstance(value, int)):    
             return True
-    elif(field_type == "date"):  
-             
+    elif(field_type == "date"):               
         if(isinstance(value, pd._libs.tslibs.timestamps.Timestamp) or isinstance(value, datetime.datetime)):
+            return True
+    elif(field_type == "percentage"):
+        if(isinstance(value, float)):
             return True
     else:
         if(not pd.isna(field_type)):        
@@ -609,13 +619,19 @@ def check_field_type(value,field_type):
             return False
 
 def convert_field_to_type(value,field_type):
-    if(isinstance(value, str)):             
-       if(convert_float(value) != None):
-           return convert_float(value)
-       elif(convert_int(value) != None):
-           return convert_int(value)
-       else:
-           raise InvalidFormat("No se puede convertir a numero") 
+    if(field_type == "number"):
+        if(isinstance(value, str)):             
+            if(convert_float(value) != None):
+                return convert_float(value)
+            elif(convert_int(value) != None):
+                return convert_int(value)
+            else:
+                raise InvalidFormat("No se puede convertir a numero") 
+    elif(field_type == "number"):
+        if(convert_float(value) != None):
+                return convert_float(value)
+    else:
+        return value            
 
 def convert_float(value):
     try:
@@ -643,7 +659,7 @@ def check_empty_row_array(array):
         return False
 
 def validate_field_types(field_types):    
-    valid = ["string","number","date"]
+    valid = ["string","number","date","percentage"]
     for tp in field_types:
         if(not pd.isna(tp)):
             if(not tp in valid):
@@ -685,19 +701,35 @@ def validate_formulas(formulas):
                 raise Exception("El JSON no es valido => "+ formula)
 
 
-def dataframe_difference(df1, df2, which=None):     
-    #df1 = df1.astype(str)
-    print(df1.dtypes)
-    #df2 = df2.astype(str)
-    print(df2.dtypes)
+def dataframe_difference(first, second, which=None):  
+    df1 = first.copy()           
+    df2 = second.copy()           
+    filteredColumns = df1.dtypes[df1.dtypes == np.float_]    
+    listOfColumnNames = list(filteredColumns.index)
+    #print(listOfColumnNames)
+
+    N = 10000000000000000
+    for column in listOfColumnNames:
+        df1[column] = np.round(df1[column]*N).astype('Int64')        
+        df2[column] = np.round(df2[column]*N).astype('Int64')
+        
+           
+    #print(df1)
+    #print(df2)
     comparison_df = df1.merge(df2,indicator=True,how='outer')    
-    print(comparison_df)
-    print(comparison_df.dtypes)
+    
+    for column in listOfColumnNames:
+        comparison_df[column] = comparison_df[column] / N     
+
     if which is None:
         diff_df = comparison_df[comparison_df['_merge'] != 'both']
     else:
-        diff_df = comparison_df[comparison_df['_merge'] == which]    
+        diff_df = comparison_df[comparison_df['_merge'] == which] 
+
     return diff_df.drop('_merge',axis=1)
+
+
+
 
 if __name__ == '__main__':
     main()
