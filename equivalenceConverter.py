@@ -105,8 +105,7 @@ def main():
         except Exception as e:
             log.error("Error: " + str(e))
             print("ERROR : Fichero de equivalencias erroneo o no encontrado")
-            return
-
+            return        
         
         log.info("Procesando fichero: " + input_file)
         
@@ -130,7 +129,7 @@ def main():
         index = 0
         outputData = []                                   
         incidenceData = []
-        
+                
         try:
             if(not pd.isna(filter_func)):
                 filter_data_excel(filter_func,dataExcel)            
@@ -215,11 +214,7 @@ def main():
                 equalRows = pd.DataFrame(columns=['ISIN'])
                 if(not historyExcel.empty):
                     historyExcel = historyExcel.dropna(how='all')  
-
-                    resultExcel = resultExcel.astype(historyExcel.dtypes.to_dict())
-                    if(not historyExcel.dtypes.equals(resultExcel.dtypes)):                        
-                        raise InvalidFormat("El formato del fichero [output] es diferente al actual")
-
+                    match_dataframes_types(resultExcel,historyExcel)
                     resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
                     #print(resultExcel)
                     finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
@@ -268,10 +263,8 @@ def main():
 
                     historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                     finalIncidenceExcel = None
-                    if(not historyIncidenceExcel.empty):
-                        incidenceExcel = incidenceExcel.astype(historyIncidenceExcel.dtypes.to_dict())
-                        if(not historyIncidenceExcel.dtypes.equals(incidenceExcel.dtypes)):
-                            raise InvalidFormat("El formato del fichero [incidence] es diferente al actual")
+                    if(not historyIncidenceExcel.empty):                        
+                        match_dataframes_types(incidenceExcel,historyIncidenceExcel)
                         finalIncidenceExcel = historyIncidenceExcel.append(incidenceExcel)                                                    
                     else:
                         finalIncidenceExcel = incidenceExcel                                                
@@ -728,8 +721,14 @@ def dataframe_difference(first, second, which=None):
 
     return diff_df.drop('_merge',axis=1)
 
-
-
+def match_dataframes_types(df1,df2):            
+    for col in df2.columns:        
+        if(df2[col].dtype != df1[col].dtype):
+            print(col)
+            if(df2[col].isnull().sum() == len(df2[col])):
+                df2[col]=df2[col].astype(df1[col].dtype)
+            elif(df1[col].isnull().sum() == len(df1[col])):
+                df1[col]=df1[col].astype(df2[col].dtype)            
 
 if __name__ == '__main__':
     main()
