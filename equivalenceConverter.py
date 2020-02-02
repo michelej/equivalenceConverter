@@ -723,8 +723,7 @@ def dataframe_difference(first, second, which=None):
 
 def match_dataframes_types(df1,df2):            
     for col in df2.columns:        
-        if(df2[col].dtype != df1[col].dtype):
-            print(col)
+        if(df2[col].dtype != df1[col].dtype):            
             if(df2[col].isnull().sum() == len(df2[col])):
                 df2[col]=df2[col].astype(df1[col].dtype)
             elif(df1[col].isnull().sum() == len(df1[col])):
