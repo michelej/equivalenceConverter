@@ -431,6 +431,7 @@ def eval_value(commands, dataExcel, index):
         if(not pd.isna(val)):
             val = eval_prepend(commands , val)
             val = eval_append(commands , val)
+            val = eval_replace(commands , val)
             return {"value":val,"col":col,"row":row+index}
         else:     
             if(check_row_ifnull(dataExcel,row+index)):       
@@ -552,6 +553,14 @@ def eval_append(command, value):
     if(command.get("append")):
         value = str(value) + command.get("append")
     return value
+ 
+def eval_replace(command, value):
+    if(command.get("replace")):
+        replace = command.get("replace")
+        if(replace.get("pattern") and replace.get("text")):
+            return value.replace(replace.get("pattern"),replace.get("text"))
+    return value        
+
 #################################################
 ## Verificar si una fila esta completamente vacia
 #################################################
@@ -660,7 +669,7 @@ def validate_field_types(field_types):
     
 
 def validate_formulas(formulas):
-    const_values=["col","below-text","row","add-rows","prepend","append"]
+    const_values=["col","below-text","row","add-rows","prepend","append","replace"]
     const_position=["col","row"]
     const_date = ["transform", "quantity", "format", "value", "position"]
     const_filter=["column","query","type"]

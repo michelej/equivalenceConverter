@@ -17,12 +17,24 @@ Sirve para representar una columna COMPLETA indicando una posicion inicial, norm
     add-rows = se le suma a la fila la cantidad especificada.
     prepend = agrega al INICIO del valor el texto indicado.
     append = agrega al FINAL del valor el texto indicado.
-    
+    replace = remplaza el texto en pattern por el de text , requiere dos parametros (pattern , text)
 
 {
     "value":{
         "col":"11",
-        "below-text":"ISIN Codes"
+        "below-text":"ISIN Codes"        
+    }
+}
+
+{
+    "value":{
+        "col":"11",
+        "below-text":"ISIN Codes",
+        "replace":{
+            "pattern":"XSD",
+            "text":"Texto"
+        }
+        
     }
 }
 
