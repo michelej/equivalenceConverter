@@ -9,6 +9,7 @@ import datetime  # Fechas
 import ntpath   # Rutas
 import time
 import xlwings as xw
+import re
 
 class NullValue(Exception):   
    pass
@@ -160,6 +161,8 @@ def main():
                         rowResult.append(dataResult)  
                         if(i==1):
                             row_isin = dataResult
+                            if(not valid_isin_code(row_isin)):                            
+                                raise InvalidFormat("ISIN no valido")
                     except NullValue as e:                         
                         errorsFound=True                                                
                         log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))                                   
@@ -187,7 +190,7 @@ def main():
                     if(not errorsFound):  
                         outputData.append(rowResult)
                     # con error y isin no es null
-                    elif(errorsFound and pd.notna(row_isin)):                                
+                    elif(errorsFound and pd.notna(row_isin) and valid_isin_code(row_isin)):
                         incidenceData.append(rowResult)
 
                 if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
@@ -554,13 +557,26 @@ def eval_append(command, value):
     if(command.get("append")):
         value = str(value) + command.get("append")
     return value
- 
+################################################
+##  Reemplaza el pattern con el text
+################################################
 def eval_replace(command, value):
     if(command.get("replace")):
         replace = command.get("replace")
         if(replace.get("pattern") and replace.get("text")):
             return value.replace(replace.get("pattern"),replace.get("text"))
     return value        
+
+def valid_isin_code(isin):
+    if(not pd.isna(isin)):
+        pattern_isin = "\\b([A-Z]{2})((?![A-Z]{10}\b)[A-Z0-9]{10})\\b"
+        if(not pd.isna(re.search(pattern_isin, isin))):
+            return True
+        else:
+            return False    
+    else:
+        return False
+        
 
 #################################################
 ## Verificar si una fila esta completamente vacia
