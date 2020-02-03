@@ -118,7 +118,8 @@ def main():
                 app = xw.App(visible=False)
                 wb = xw.Book(input_file)
                 active_sheet_name = wb.sheets.active.name                
-                app.kill()
+                wb.close()
+                app.quit()
                 dataExcel = pd.read_excel(input_file, sheet_name=active_sheet_name, header=None)
                 dataExcel=dataExcel.replace('\n', '',regex=True).replace('\r','',regex=True)
         except Exception as e: 
