@@ -136,7 +136,6 @@ def main():
         index = 0
         outputData = []                                   
         incidenceData = []
-                
         try:
             if(not pd.isna(filter_func)):
                 filter_data_excel(filter_func,dataExcel)            
@@ -444,6 +443,7 @@ def eval_value(commands, dataExcel, index):
             val = eval_prepend(commands , val)
             val = eval_append(commands , val)
             val = eval_replace(commands , val)
+            val = val.strip() if isinstance(val , str) else val
             return {"value":val,"col":col,"row":row+index}
         else:     
             if(check_row_ifnull(dataExcel,row+index)):       
@@ -468,8 +468,13 @@ def eval_position(commands, dataExcel):
             raise InvalidFormat("[Position] La columna no es valida para el comando: " + str(commands))
     if(commands.get("row")):
         row = int(commands["row"])-1
-    if(row in dataExcel.index):    
-        return dataExcel.iloc[row, col]
+    if(row in dataExcel.index):
+        val = dataExcel.iloc[row, col]
+        val = eval_prepend(commands , val)
+        val = eval_append(commands , val)
+        val = eval_replace(commands , val) 
+        val =  val.strip() if isinstance(val , str) else val
+        return val
     else:
         return None    
 ###########################################################
@@ -570,8 +575,8 @@ def eval_append(command, value):
 ################################################
 def eval_replace(command, value):
     if(command.get("replace")):
-        replace = command.get("replace")
-        if(replace.get("pattern") and replace.get("text")):
+        replace = command.get("replace")        
+        if("pattern" in replace and  "text" in replace):
             return value.replace(replace.get("pattern"),replace.get("text"))
     return value        
 
