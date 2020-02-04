@@ -33,7 +33,9 @@ logger_console = False  # log to console
 
 pd.set_option("display.precision", 16)
 
-def main():    
+def main():
+    IS_SEDOL = False    
+
     incidence_file = None
     output_file = None
     input_file = None
@@ -74,25 +76,28 @@ def main():
         log_name = "log_"+input_file_name[0]+"_"+now.strftime("%d%m%Y%H%M%S")+".txt"
         global log
         log = simplelogging.get_logger(file_name=output_dir+log_name,console=logger_console)    
+
+        IS_SEDOL = True if not pd.isna(re.search("SEDOL", str(process_id))) else False        
         
-        output_file = "output_"+process_type+".xlsx"
-        incidence_file = "incidence_"+process_type+".xlsx"
+        output_file = "output_"+process_type+".xlsx" if not IS_SEDOL else "output_SEDOL_"+process_type+".xlsx"
+        incidence_file = "incidence_"+process_type+".xlsx" if not IS_SEDOL else "incidence_SEDOL_"+process_type+".xlsx"
         
         log.info("Iniciando Proceso")
         log.info("PID: "+ str(os.getpid()))
         log.info(process_type + " - ( " + process_id + " )")
                 
         try:
-            configExcel = pd.read_excel(config_file, process_type)
-            
-            if set(['Campos', int(process_id)]).issubset(configExcel.columns):
+            configExcel = pd.read_excel(config_file, process_type)                        
+            configExcel.columns = configExcel.columns.astype(str) 
+
+            if set(['Campos', process_id]).issubset(configExcel.columns):
                 campos = configExcel["Campos"]                
                 tipo = configExcel["Tipo"]                                               
                 fields=campos[1:] 
                 fields = fields.dropna(how='all')                                 
                 fields = fields.apply(lambda x: x.strip())                               
                 
-                allFormulas = configExcel[int(process_id)]
+                allFormulas = configExcel[process_id]
                 formulas = allFormulas[1:len(fields)+1]                
                 field_types=tipo[1:len(fields)+1]                                
                 field_types = field_types.apply(lambda x: x.lower() if not pd.isna(x) else x)
@@ -106,7 +111,7 @@ def main():
         except Exception as e:
             log.error("Error: " + str(e))
             print("ERROR : Fichero de equivalencias erroneo o no encontrado")
-            return        
+            return 
         
         log.info("Procesando fichero: " + input_file)
         
@@ -140,7 +145,7 @@ def main():
                 i = 1
                 rowResult = []               
                 errorsFound = False 
-                row_isin = None               
+                row_id = None               
                 for j in range(len(fields)):                                         
                     try:                        
                         dataResult=float('NaN')                         
@@ -159,10 +164,11 @@ def main():
                                 dataResult=float('NaN')               
 
                         rowResult.append(dataResult)  
-                        if(i==1):
-                            row_isin = dataResult
-                            if(not valid_isin_code(row_isin)):                            
-                                raise InvalidFormat("ISIN no valido")
+                        if((not IS_SEDOL and i == 1 ) or (IS_SEDOL and i == 2)):
+                            row_id = dataResult
+                            if(IS_SEDOL):
+                                if(not valid_isin_code(row_id)):
+                                    raise InvalidFormat("ISIN no valido")
                     except NullValue as e:                         
                         errorsFound=True                                                
                         log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))                                   
@@ -170,7 +176,7 @@ def main():
                             rowResult.append("ERROR")                                
                     except InvalidFormat as e:
                         errorsFound=True
-                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_isin) +")")                                                       
+                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) +")")                                                       
                         if(i != 1):
                             rowResult.append("ERROR")                        
                     except EmptyRow as e:                        
@@ -190,7 +196,7 @@ def main():
                     if(not errorsFound):  
                         outputData.append(rowResult)
                     # con error y isin no es null
-                    elif(errorsFound and pd.notna(row_isin) and valid_isin_code(row_isin)):
+                    elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):
                         incidenceData.append(rowResult)
 
                 if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
@@ -216,7 +222,7 @@ def main():
                 #print(historyExcel)   
                 finalExcel = None
                 equalRows = pd.DataFrame(columns=['ISIN'])
-                if(not historyExcel.empty):
+                if(not historyExcel.empty and not IS_SEDOL):
                     historyExcel = historyExcel.dropna(how='all')  
                     match_dataframes_types(resultExcel,historyExcel)
                     resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
@@ -229,12 +235,14 @@ def main():
                 finalExcel.drop_duplicates(keep='first', inplace=True)
                 finalExcel.reset_index(drop=True, inplace=True)       
                 #print(finalExcel)        
-
-                equalRows = finalExcel[finalExcel.duplicated(fields[1], keep=False)]            
+                
+                columnId = fields[1] if not IS_SEDOL else fields[2]
+                equalRows = finalExcel[finalExcel.duplicated(columnId, keep=False)]            
                 equalRows.reset_index(drop=True, inplace=True)                      
                 #print(equalRows)  
 
-                finalExcel.drop_duplicates(fields[1], inplace=True, keep=False)                        
+                columnId = fields[1] if not IS_SEDOL else fields[2]
+                finalExcel.drop_duplicates(columnId, inplace=True, keep=False)                        
                 finalExcel.reset_index(drop=True, inplace=True)            
                 #print(finalExcel)
                 
@@ -248,12 +256,12 @@ def main():
                         log.info("Guardando fichero: "+output_dir+output_file)
                         log.info("Proceso finalizado...")                        
 
-                        res_isins = newsExcel.iloc[:, 0]
-                        if(len(res_isins)>0):
+                        res_ids = newsExcel.iloc[:, 0] if not IS_SEDOL else newsExcel.iloc[:, 1]                        
+                        if(len(res_ids)>0):
                             print("OK")
                             flag_ok = True
-                            for isin in res_isins:
-                                print(str(isin) + ",OK,"+output_file)
+                            for ids in res_ids:
+                                print(str(ids) + ",OK,"+output_file)
                             flag_data = True
                     else:
                         print("ERROR : Fallo en la escritura del fichero de salida.")
@@ -261,13 +269,13 @@ def main():
                 
                 if(len(incidenceData)>0 or not equalRows.empty):
                     incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
-                    #print(equalRows)
+                    print(equalRows)
                     incidenceExcel=pd.concat([incidenceExcel,equalRows])                
                     #print(incidenceExcel)
 
                     historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                     finalIncidenceExcel = None
-                    if(not historyIncidenceExcel.empty):                        
+                    if(not historyIncidenceExcel.empty and not IS_SEDOL):                        
                         match_dataframes_types(incidenceExcel,historyIncidenceExcel)
                         finalIncidenceExcel = historyIncidenceExcel.append(incidenceExcel)                                                    
                     else:
