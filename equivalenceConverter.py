@@ -165,7 +165,7 @@ def main():
                         rowResult.append(dataResult)  
                         if((not IS_SEDOL and i == 1 ) or (IS_SEDOL and i == 2)):
                             row_id = dataResult
-                            if(IS_SEDOL):
+                            if(not IS_SEDOL):
                                 if(not valid_isin_code(row_id)):
                                     raise InvalidFormat("ISIN no valido")
                     except NullValue as e:                         
