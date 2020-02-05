@@ -269,7 +269,7 @@ def main():
                 
                 if(len(incidenceData)>0 or not equalRows.empty):
                     incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
-                    print(equalRows)
+                    #print(equalRows)
                     incidenceExcel=pd.concat([incidenceExcel,equalRows])                
                     #print(incidenceExcel)
 
