@@ -197,9 +197,8 @@ def main():
                     if(not errorsFound):  
                         outputData.append(rowResult)
                     # con error y isin no es null
-                    elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):
-                    #elif(errorsFound):
-                     #   incidenceData.append(rowResult)
+                    elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):                    
+                        incidenceData.append(rowResult)
 
                 if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
                     finished = True      
