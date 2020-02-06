@@ -169,10 +169,12 @@ def main():
                                 if(not valid_isin_code(row_id)):
                                     raise InvalidFormat("ISIN no valido")
                     except NullValue as e:                         
-                        errorsFound=True                                                
-                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))                                   
-                        if(i != 1):
-                            rowResult.append("ERROR")                                
+                        rowResult.append(float('NaN'))
+                        #errorsFound=True                                                
+                        log.warning("Advertencia campo vacio ["+fields[i]+"]  -  " + str(e))                                   
+                        if((i == 1 and not IS_SEDOL) or (i==2 and IS_SEDOL)):
+                            errorsFound = True
+                            #rowResult.append("ERROR")                                
                     except InvalidFormat as e:
                         errorsFound=True
                         log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) +")")                                                       
@@ -196,7 +198,8 @@ def main():
                         outputData.append(rowResult)
                     # con error y isin no es null
                     elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):
-                        incidenceData.append(rowResult)
+                    #elif(errorsFound):
+                     #   incidenceData.append(rowResult)
 
                 if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
                     finished = True      
@@ -210,7 +213,7 @@ def main():
         
         try:
             flag_ok = False
-            if(len(outputData)>0):                
+            if(len(outputData)>0):                     
                 resultExcel = pd.DataFrame(outputData,columns=fields)                            
                 resultExcel.drop_duplicates(keep='first', inplace=True)                                          
 
@@ -222,8 +225,8 @@ def main():
                 finalExcel = None
                 equalRows = pd.DataFrame(columns=['ISIN'])
                 if(not historyExcel.empty and not IS_SEDOL):
-                    historyExcel = historyExcel.dropna(how='all')  
-                    match_dataframes_types(resultExcel,historyExcel)
+                    historyExcel = historyExcel.dropna(how='all')                      
+                    match_dataframes_types(resultExcel,historyExcel)                    
                     resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
                     #print(resultExcel)
                     finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
@@ -735,19 +738,15 @@ def validate_formulas(formulas):
 
 def dataframe_difference(first, second, which=None):  
     df1 = first.copy()           
-    df2 = second.copy()           
+    df2 = second.copy()          
     filteredColumns = df1.dtypes[df1.dtypes == np.float_]    
     listOfColumnNames = list(filteredColumns.index)
-    #print(listOfColumnNames)
-
+    
     N = 10000000000000000
     for column in listOfColumnNames:
         df1[column] = np.round(df1[column]*N).astype('Int64')        
         df2[column] = np.round(df2[column]*N).astype('Int64')
-        
-           
-    #print(df1)
-    #print(df2)
+
     comparison_df = df1.merge(df2,indicator=True,how='outer')    
     
     for column in listOfColumnNames:
@@ -766,7 +765,9 @@ def match_dataframes_types(df1,df2):
             if(df2[col].isnull().sum() == len(df2[col])):
                 df2[col]=df2[col].astype(df1[col].dtype)
             elif(df1[col].isnull().sum() == len(df1[col])):
-                df1[col]=df1[col].astype(df2[col].dtype)            
+                df1[col]=df1[col].astype(df2[col].dtype)
+            else:
+                df1[col]=df1[col].astype(df2[col].dtype)
 
 if __name__ == '__main__':
     main()
