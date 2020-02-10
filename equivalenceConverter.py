@@ -131,85 +131,22 @@ def main():
         except Exception as e: 
             print("ERROR : No se pudo abrir el fichero a procesar")
             return        
-                
-        finished = False
-        index = 0
-        outputData = []                                   
-        incidenceData = []
-        try:
+
+        firstLineExists = gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_SEDOL,True)       
+        outputData=[]
+        incidenceData=[]
+        if(len(firstLineExists["outputData"])>0 or len(firstLineExists["incidenceData"])>0):
             if(not pd.isna(filter_func)):
-                filter_data_excel(filter_func,dataExcel)            
+                filter_data_excel(filter_func, dataExcel)
                 log.info("Filtro aplicado.")
-            while not finished:
-                i = 1
-                rowResult = []               
-                errorsFound = False 
-                row_id = None               
-                for j in range(len(fields)):                                         
-                    try:                        
-                        dataResult=float('NaN')                         
-                        if(not pd.isna(formulas[i])):
-                            dataResult = convert_function(formulas[i], dataExcel, index ,True if j==0 else False)  # Datos                                                                                            
-                            if(not pd.isna(dataResult)):
-                                if(not pd.isna(field_types[i])):                            
-                                    if(field_types[i] == "string"): # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
-                                        dataResult = str(dataResult)
-                                    if(not check_field_type(dataResult,field_types[i])):
-                                        try:
-                                            dataResult=convert_field_to_type(dataResult,field_types[i])
-                                        except:
-                                            raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido ("+ field_types[i] + ")")                        
-                            else:
-                                dataResult=float('NaN')               
+            dataFromExcel = gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_SEDOL,False)
+            
+            outputData = dataFromExcel["outputData"]
+            incidenceData = dataFromExcel["incidenceData"]
+            error_format_match = False
+        else:
+            error_format_match=True            
 
-                        rowResult.append(dataResult)  
-                        if((not IS_SEDOL and i == 1 ) or (IS_SEDOL and i == 2)):
-                            row_id = dataResult
-                            if(not IS_SEDOL):
-                                if(not valid_isin_code(row_id)):
-                                    raise InvalidFormat("ISIN no valido")
-                    except NullValue as e:                         
-                        rowResult.append(float('NaN'))
-                        #errorsFound=True                                                
-                        log.warning("Advertencia campo vacio ["+fields[i]+"]  -  " + str(e))                                   
-                        if((i == 1 and not IS_SEDOL) or (i==2 and IS_SEDOL)):
-                            errorsFound = True
-                            #rowResult.append("ERROR")                                
-                    except InvalidFormat as e:
-                        errorsFound=True
-                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) +")")                                                       
-                        if(i != 1):
-                            rowResult.append("ERROR")                        
-                    except EmptyRow as e:                        
-                        errorsFound=True
-                        rowResult.append(float('NaN'))
-                        log.error("Error en el campo ["+fields[i]+"]  -  " + str(e))
-                    except CriticalError as e:
-                        errorsFound=True                        
-                        finished = True
-                    except EndOfData as e:                        
-                        finished = True
-                    finally:    
-                        i = i+1  
-                
-                if(not finished and not check_empty_row_array(rowResult)):
-                    # sin error y la fila no esta vacia
-                    if(not errorsFound):  
-                        outputData.append(rowResult)
-                    # con error y isin no es null
-                    elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):                    
-                        incidenceData.append(rowResult)
-
-                if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
-                    finished = True      
-                    error_format_match = True
-
-                if(index % 5 == 0 ):
-                    log.info("Se han procesado " + str(index) +" filas")
-                index = index + 1     
-        except (InvalidFormat,CriticalError) as e:
-            error_format_match = True      
-        
         try:
             flag_ok = False
             if(len(outputData)>0):                     
@@ -308,6 +245,8 @@ def main():
             else:
                 if(error_format_match == True):
                     print("ERROR : El formato para este excel no es correcto: " + process_type + " - " + process_id)
+                elif(len(outputData) == 0 and len(incidenceData) == 0):
+                    print("NO DATA: No se encontraron datos para procesar")
                 else:    
                     print("ERROR") 
         except (InvalidFormat) as e:            
@@ -318,6 +257,99 @@ def main():
 
     elapsed_time = time.time() - start_time
     log.info("Tiempo de ejecución: " + str(elapsed_time) +" segundos")
+
+################################################
+##  Obtener los datos del Excel 
+##  
+################################################
+def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_SEDOL,VALIDATE):
+    finished = False
+    index = 0
+    outputData = []
+    incidenceData = []
+    error_format_match = False
+    try:       
+        while not finished:           
+            i = 1
+            rowResult = []
+            errorsFound = False
+            row_id = None
+            for j in range(len(fields)):
+                try:
+                    dataResult = float('NaN')
+                    if(not pd.isna(formulas[i])):
+                        dataResult = convert_function(
+                            formulas[i], dataExcel, index, True if j == 0 else False)  # Datos
+                        if(not pd.isna(dataResult)):
+                            if(not pd.isna(field_types[i])):
+                                # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
+                                if(field_types[i] == "string"):
+                                    dataResult = str(dataResult)
+                                if(not check_field_type(dataResult, field_types[i])):
+                                    try:
+                                        dataResult = convert_field_to_type(
+                                            dataResult, field_types[i])
+                                    except:
+                                        raise InvalidFormat(
+                                            "El formato para el campo "+fields[i]+" es invalido (" + field_types[i] + ")")
+                        else:
+                            dataResult = float('NaN')
+
+                    rowResult.append(dataResult)
+                    if((not IS_SEDOL and i == 1) or (IS_SEDOL and i == 2)):
+                        row_id = dataResult
+                        if(not IS_SEDOL):
+                            if(not valid_isin_code(row_id)):
+                                raise InvalidFormat("ISIN no valido")
+                except NullValue as e:
+                    rowResult.append(float('NaN'))
+                    #errorsFound=True
+                    log.warning(
+                        "Advertencia campo vacio ["+fields[i]+"]  -  " + str(e))
+                    if((i == 1 and not IS_SEDOL) or (i == 2 and IS_SEDOL)):
+                        errorsFound = True
+                        #rowResult.append("ERROR")
+                except InvalidFormat as e:
+                    errorsFound = True
+                    log.error(
+                        "Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) + ")")
+                    if(i != 1):
+                        rowResult.append("ERROR")
+                except EmptyRow as e:
+                    errorsFound = True
+                    rowResult.append(float('NaN'))
+                    log.error(
+                        "Error en el campo ["+fields[i]+"]  -  " + str(e))
+                except CriticalError as e:
+                    errorsFound = True
+                    finished = True
+                except EndOfData as e:
+                    finished = True
+                finally:
+                    i = i+1
+
+            if(not finished and not check_empty_row_array(rowResult)):
+                # sin error y la fila no esta vacia
+                if(not errorsFound):
+                    outputData.append(rowResult)
+                # con error y isin no es null
+                elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):
+                    incidenceData.append(rowResult)
+
+            if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
+                finished = True
+                error_format_match = True
+
+            if(VALIDATE == True):
+               finished = True 
+
+            if(index % 5 == 0):
+                log.info("Se han procesado " + str(index) + " filas")
+            index = index + 1
+    except (InvalidFormat, CriticalError) as e:
+        error_format_match = True
+    return {"outputData":outputData,"incidenceData":incidenceData,"error_format_match":error_format_match}    
+
 ################################################
 ##  Guardar fichero excel
 ##  returns : True / False
