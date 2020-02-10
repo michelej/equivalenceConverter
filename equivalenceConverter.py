@@ -108,9 +108,13 @@ def main():
                 validate_formulas(formulas)
             else:
                 raise Exception("No se han encontrado las columnas necesarias : (Campos ," + process_id + ")")              
+        except OSError as e:
+            log.error("Error: " + str(e))
+            print("ERROR : Fichero de equivalencias no encontrado")
+            return 
         except Exception as e:
             log.error("Error: " + str(e))
-            print("ERROR : Fichero de equivalencias erroneo o no encontrado")
+            print("ERROR : Fichero de equivalencias ERRONEO")
             return 
         
         log.info("Procesando fichero: " + input_file)
