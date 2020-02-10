@@ -131,7 +131,7 @@ def main():
         except Exception as e: 
             print("ERROR : No se pudo abrir el fichero a procesar")
             return        
-        
+                
         finished = False
         index = 0
         outputData = []                                   
@@ -383,8 +383,7 @@ def filter_data_excel(filter_command , dataExcel):
         finished = False            
         rowResult = []               
         while not finished:
-            i = 1            
-            errorsFound = False                         
+            i = 1                                                
             try:                            
                 valueFilter=eval_value(value, dataExcel, index)
                 if(query_type == "equal"):
@@ -393,11 +392,8 @@ def filter_data_excel(filter_command , dataExcel):
                 elif(query_type == "diff"):
                     if(query == valueFilter["value"]):
                         rowResult.append(valueFilter["row"])                     
-            except EmptyRow as e:                        
-                errorsFound=True       
-            except NullValue as e:  
-                log.error(e)
-                raise CriticalError()             
+            except (EmptyRow,NullValue) as e:                        
+                pass            
             except CriticalError as e:                
                 raise e    
             except EndOfData as e:                        
