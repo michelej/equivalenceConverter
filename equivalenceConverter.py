@@ -792,13 +792,13 @@ def dataframe_difference(first, second, which=None):
 
     return diff_df.drop('_merge',axis=1)
 
-def match_dataframes_types(df1,df2):            
+def match_dataframes_types(df1,df2):        
     for col in df2.columns:        
-        if(df2[col].dtype != df1[col].dtype):            
+        if(df2[col].dtype != df1[col].dtype):                        
             if(df2[col].isnull().sum() == len(df2[col])):
-                df2[col]=df2[col].astype(df1[col].dtype)
+                df2[col]=df2[col].fillna(0).astype(int).astype(df1[col].dtype)
             elif(df1[col].isnull().sum() == len(df1[col])):
-                df1[col]=df1[col].astype(df2[col].dtype)
+                df1[col]=df1[col].fillna(0).astype(int).astype(df2[col].dtype)
             else:
                 df1[col]=df1[col].astype(df2[col].dtype)
 
