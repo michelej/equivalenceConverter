@@ -10,6 +10,7 @@ import ntpath   # Rutas
 import time
 import xlwings as xw
 import re
+import traceback
 
 class NullValue(Exception):   
    pass
@@ -401,7 +402,8 @@ def convert_function(string, dataExcel, index,firstColumn):
         except (NullValue,EndOfData,EmptyRow,CriticalError,InvalidFormat) as e:                  
             raise e                 
         except Exception as e:
-            log.error(e)
+            tb = traceback.format_exc()
+            log.error(tb)
 ################################################
 ##  Aplicar filtro al excel
 ################################################
