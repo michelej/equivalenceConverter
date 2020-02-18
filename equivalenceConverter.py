@@ -140,7 +140,7 @@ def main():
         firstLineExists = gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_SEDOL,True)       
         outputData=[]
         incidenceData=[]
-        if(len(firstLineExists["outputData"])>0 or len(firstLineExists["incidenceData"])>0):
+        if((len(firstLineExists["outputData"])>0 or len(firstLineExists["incidenceData"])>0) and firstLineExists["error_format_match"] == False):
             if(not pd.isna(filter_func)):
                 filter_data_excel(filter_func, dataExcel)
                 log.info("Filtro aplicado.")
@@ -154,7 +154,7 @@ def main():
 
         try:
             flag_ok = False
-            if(len(outputData)>0):                     
+            if(len(outputData)>0 or len(incidenceData)>0):                     
                 resultExcel = pd.DataFrame(outputData,columns=fields)                            
                 resultExcel.drop_duplicates(keep='first', inplace=True)                                          
                 
@@ -170,9 +170,7 @@ def main():
                     if(field_types[i+1] == 'ratio'):
                         ratio_fields[fields[i+1]]=12        
                                 
-                resultExcel=resultExcel.round(ratio_fields)
-                
-                
+                resultExcel=resultExcel.round(ratio_fields)                                
 
                 #print(resultExcel.dtypes)
                 #print(resultExcel)   
@@ -294,13 +292,14 @@ def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_
             i = 1
             rowResult = []
             errorsFound = False
+            forcedErrorsFound = False
             row_id = None
             for j in range(len(fields)):
                 try:
                     dataResult = float('NaN')
                     if(not pd.isna(formulas[i])):
-                        dataResult = convert_function(
-                            formulas[i], dataExcel, index, True if j == 0 else False)  # Datos
+                        convertResult = convert_function(formulas[i], dataExcel, index, True if j == 0 else False)  # Datos
+                        dataResult = convertResult["value"]
                         if(not pd.isna(dataResult)):
                             if(not pd.isna(field_types[i])):
                                 # Forzamos todo lo que sea string a texto por cuestiones de simplicidad
@@ -308,11 +307,12 @@ def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_
                                     dataResult = str(dataResult)
                                 if(not check_field_type(dataResult, field_types[i])):
                                     try:
-                                        dataResult = convert_field_to_type(
-                                            dataResult, field_types[i])
+                                        dataResult = convert_field_to_type(dataResult, field_types[i])
                                     except:
-                                        raise InvalidFormat(
-                                            "El formato para el campo "+fields[i]+" es invalido (" + field_types[i] + ")")
+                                        if(convertResult["command"] != "constant"):
+                                            raise InvalidFormat("El formato para el campo "+fields[i]+" es invalido (" + field_types[i] + ")")
+                                        else:
+                                            forcedErrorsFound = True  
                         else:
                             dataResult = float('NaN')
 
@@ -325,15 +325,13 @@ def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_
                 except NullValue as e:
                     rowResult.append(float('NaN'))
                     #errorsFound=True
-                    log.warning(
-                        "Advertencia campo vacio ["+fields[i]+"]  -  " + str(e))
+                    log.warning("Advertencia campo vacio ["+fields[i]+"]  -  " + str(e))
                     if((i == 1 and not IS_SEDOL) or (i == 2 and IS_SEDOL)):
                         errorsFound = True
                         #rowResult.append("ERROR")
                 except InvalidFormat as e:
                     errorsFound = True
-                    log.error(
-                        "Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) + ")")
+                    log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) + ")")
                     if(i != 1):
                         rowResult.append("ERROR")
                 except EmptyRow as e:
@@ -351,10 +349,10 @@ def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_
 
             if(not finished and not check_empty_row_array(rowResult)):
                 # sin error y la fila no esta vacia
-                if(not errorsFound):
+                if(not errorsFound and not forcedErrorsFound):
                     outputData.append(rowResult)
                 # con error y isin no es null
-                elif(errorsFound and pd.notna(row_id) and valid_isin_code(row_id)):
+                elif((errorsFound or forcedErrorsFound) and pd.notna(row_id) and valid_isin_code(row_id)):
                     incidenceData.append(rowResult)
 
             if((errorsFound and index == 0) or (index == 0 and check_empty_row_array(rowResult))):
@@ -406,15 +404,15 @@ def convert_function(string, dataExcel, index,firstColumn):
         try: 
             if(commands.get("value")):
                 found = eval_value(commands.get("value"), dataExcel, index)
-                return found["value"]
+                return {"command":"value","value":found["value"]}
             if(commands.get("constant")):
-                return commands["constant"]
+                return {"command":"constant","value":commands["constant"]}
             if(commands.get("position")):
-                return eval_position(commands["position"], dataExcel)
+                return {"command":"position","value":eval_position(commands["position"], dataExcel)}
             if(commands.get("math")):
-                return eval_math(commands["math"], dataExcel, index)            
+                return {"command":"math","value":eval_math(commands["math"], dataExcel, index)}
             if(commands.get("date")):
-                return eval_date(commands["date"], dataExcel, index)            
+                return {"command":"date","value":eval_date(commands["date"], dataExcel, index)}
         except (NullValue,EndOfData,EmptyRow,CriticalError,InvalidFormat) as e:                  
             raise e                 
         except Exception as e:
