@@ -157,6 +157,22 @@ def main():
             if(len(outputData)>0):                     
                 resultExcel = pd.DataFrame(outputData,columns=fields)                            
                 resultExcel.drop_duplicates(keep='first', inplace=True)                                          
+                
+                #print(resultExcel)
+                number_fields = {}    
+                for i in range(len(field_types)):
+                    if(field_types[i+1] == 'number'):
+                        number_fields[fields[i+1]]=2
+                resultExcel=resultExcel.round(number_fields)
+
+                ratio_fields = {}    
+                for i in range(len(ratio_fields)):
+                    if(field_types[i+1] == 'ratio'):
+                        ratio_fields[fields[i+1]]=12        
+                                
+                resultExcel=resultExcel.round(ratio_fields)
+                
+                
 
                 #print(resultExcel.dtypes)
                 #print(resultExcel)   
@@ -672,7 +688,7 @@ def check_field_type(value,field_type):
     if(field_type == "string"):
         if(isinstance(value, str)):   
             return True            
-    elif(field_type == "number"):
+    elif(field_type == "number" or field_type == "ratio"):
         if(isinstance(value, float) or isinstance(value, int)):    
             return True
     elif(field_type == "date"):               
@@ -687,17 +703,14 @@ def check_field_type(value,field_type):
             return False
 
 def convert_field_to_type(value,field_type):
-    if(field_type == "number"):
+    if(field_type == "number" or field_type == "ratio"):
         if(isinstance(value, str)):             
             if(convert_float(value) != None):
                 return convert_float(value)
             elif(convert_int(value) != None):
                 return convert_int(value)
             else:
-                raise InvalidFormat("No se puede convertir a numero") 
-    elif(field_type == "number"):
-        if(convert_float(value) != None):
-                return convert_float(value)
+                raise InvalidFormat("No se puede convertir a numero")   
     else:
         return value            
 
@@ -727,7 +740,7 @@ def check_empty_row_array(array):
         return False
 
 def validate_field_types(field_types):    
-    valid = ["string","number","date","percentage"]
+    valid = ["string","number","date","percentage","ratio"]
     for tp in field_types:
         if(not pd.isna(tp)):
             if(not tp in valid):
