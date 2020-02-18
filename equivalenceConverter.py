@@ -233,7 +233,9 @@ def main():
                     historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                     finalIncidenceExcel = None
                     if(not historyIncidenceExcel.empty and not IS_SEDOL):                        
-                        match_dataframes_types(incidenceExcel,historyIncidenceExcel)
+                        incidenceExcel=incidenceExcel.where(~incidenceExcel.notnull(), incidenceExcel.astype('str'))
+                        historyIncidenceExcel=historyIncidenceExcel.where(~historyIncidenceExcel.notnull(), historyIncidenceExcel.astype('str'))
+                        #match_dataframes_types(incidenceExcel,historyIncidenceExcel)
                         finalIncidenceExcel = historyIncidenceExcel.append(incidenceExcel)                                                    
                     else:
                         finalIncidenceExcel = incidenceExcel                                                
@@ -333,7 +335,7 @@ def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_
                     errorsFound = True
                     log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) + ")")
                     if(i != 1):
-                        rowResult.append("ERROR")
+                        rowResult.append("ERROR " + str(dataResult))
                 except EmptyRow as e:
                     errorsFound = True
                     rowResult.append(float('NaN'))
@@ -686,7 +688,7 @@ def check_field_type(value,field_type):
     if(field_type == "string"):
         if(isinstance(value, str)):   
             return True            
-    elif(field_type == "number" or field_type == "ratio"):
+    elif(field_type == "number"):
         if(isinstance(value, float) or isinstance(value, int)):    
             return True
     elif(field_type == "date"):               
@@ -695,13 +697,23 @@ def check_field_type(value,field_type):
     elif(field_type == "percentage"):
         if(isinstance(value, float)):
             return True
+    elif(field_type == "ratio"):
+        if(isinstance(value, float) or isinstance(value, int)):    
+            number = str(value).split(".")
+            if(len(number)==2):
+                if(len(number[0])<=5):
+                    return True
+                else:
+                    return False    
+            else:
+                return False            
     else:
         if(not pd.isna(field_type)):        
             log.warning("Formato no reconocido: "+ field_type)        
             return False
 
 def convert_field_to_type(value,field_type):
-    if(field_type == "number" or field_type == "ratio"):
+    if(field_type == "number"):
         if(isinstance(value, str)):             
             if(convert_float(value) != None):
                 return convert_float(value)
@@ -709,6 +721,20 @@ def convert_field_to_type(value,field_type):
                 return convert_int(value)
             else:
                 raise InvalidFormat("No se puede convertir a numero")   
+    elif(field_type == "ratio"):
+        if(isinstance(value, str)):            
+            if(convert_float(value) != None):
+                return convert_float(value)
+            elif(convert_int(value) != None):
+                return convert_int(value)
+            else:
+                raise InvalidFormat("No se puede convertir a numero")           
+
+        number = str(value).split(".")
+        if(len(number)==2):
+            if(len(number[0])>5):
+                raise InvalidFormat("El formato del ratio tiene mas de 5 valores enteros")               
+
     else:
         return value            
 
