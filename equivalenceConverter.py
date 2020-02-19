@@ -164,8 +164,7 @@ def main():
                     if(field_types[i+1] == 'number'):
                         number_fields[fields[i+1]]=2
                 resultExcel=resultExcel.round(number_fields)
-
-                print(field_types)
+                
                 ratio_fields = {}    
                 for i in range(len(field_types)):
                     if(field_types[i+1] == 'ratio'):
