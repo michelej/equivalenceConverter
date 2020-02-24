@@ -699,14 +699,11 @@ def check_field_type(value,field_type):
             return True
     elif(field_type == "ratio"):
         if(isinstance(value, float) or isinstance(value, int)):    
-            number = str(value).split(".")
-            if(len(number)==2):
-                if(len(number[0])<=5):
-                    return True
-                else:
-                    return False    
+            number = str(value).split(".")            
+            if(len(number[0])<=5):
+                return True
             else:
-                return False            
+                return False                
     else:
         if(not pd.isna(field_type)):        
             log.warning("Formato no reconocido: "+ field_type)        
@@ -731,10 +728,9 @@ def convert_field_to_type(value,field_type):
                 raise InvalidFormat("No se puede convertir a numero")           
 
         number = str(value).split(".")
-        if(len(number)==2):
-            if(len(number[0])>5):
-                raise InvalidFormat("El formato del ratio tiene mas de 5 valores enteros")               
-
+        if(len(number[0])>5):
+            raise InvalidFormat("El formato del ratio tiene mas de 5 valores enteros")               
+        return value
     else:
         return value            
 
