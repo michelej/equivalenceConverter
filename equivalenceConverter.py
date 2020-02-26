@@ -127,7 +127,7 @@ def main():
                 dataExcel = pd.read_csv(input_file,  header=None)
             else:
                 app = xw.App(visible=False)
-                wb = xw.Book(input_file)
+                wb = xw.Book(input_file,ignore_read_only_recommended=True)
                 active_sheet_name = wb.sheets.active.name                
                 wb.close()
                 app.quit()
