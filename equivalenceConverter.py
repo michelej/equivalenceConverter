@@ -588,7 +588,10 @@ def eval_date(commands, dataExcel, index):
         raise InvalidFormat("[Date] Formato invalido, falta la posicion de la fecha.")
     
     if(isinstance(dateValue, str) and commands.get("format")):                              
-        dateValue = datetime.datetime.strptime(dateValue, commands.get("format"))           
+        try:
+            dateValue = datetime.datetime.strptime(dateValue, commands.get("format"))           
+        except ValueError as ve:
+            raise InvalidFormat("[Date] Formato invalido, el formato de la fecha no es valido - " + commands.get("format"))
 
     if(not check_field_type(dateValue,'date')):
         raise InvalidFormat("[Date] Formato invalido, no se encontro una fecha en la posicion.")    
