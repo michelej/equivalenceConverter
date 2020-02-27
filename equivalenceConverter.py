@@ -631,8 +631,15 @@ def eval_append(command, value):
 def eval_replace(command, value):
     if(command.get("replace")):
         replace = command.get("replace")        
-        if("pattern" in replace and  "text" in replace):
-            return value.replace(replace.get("pattern"),replace.get("text"))
+        if isinstance(replace, list):
+            newVal = value
+            for rep in replace:
+                if("pattern" in rep and  "text" in rep):
+                    newVal = newVal.replace(rep.get("pattern"),rep.get("text"))
+            return newVal        
+        else:
+            if("pattern" in replace and  "text" in replace):
+                return value.replace(replace.get("pattern"),replace.get("text"))
     return value        
 
 def valid_isin_code(isin):
