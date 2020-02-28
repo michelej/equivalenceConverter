@@ -124,7 +124,7 @@ def main():
         dataExcel = None
         try:
             if(file_extension[1] == ".csv"):
-                dataExcel = pd.read_csv(input_file,  header=None)
+                dataExcel = pd.read_csv(input_file,  header=None ,encoding='latin-1',sep=None)
             else:
                 app = xw.App(visible=False)
                 wb = xw.Book(input_file,ignore_read_only_recommended=True)
@@ -134,7 +134,7 @@ def main():
                 dataExcel = pd.read_excel(input_file, sheet_name=active_sheet_name, header=None)
                 dataExcel=dataExcel.replace('\n', '',regex=True).replace('\r','',regex=True)
         except Exception as e: 
-            print("ERROR : No se pudo abrir el fichero a procesar")
+            print("ERROR : No se pudo abrir el fichero a procesar. "+ str(e))
             return        
 
         firstLineExists = gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_SEDOL,True)       
