@@ -124,7 +124,7 @@ def main():
         dataExcel = None
         try:
             if(file_extension[1] == ".csv"):
-                dataExcel = pd.read_csv(input_file,  header=None ,encoding='latin-1',sep=None)
+                dataExcel = pd.read_csv(input_file,  header=None ,encoding='latin-1',sep=None , engine='python')
             else:
                 app = xw.App(visible=False)
                 wb = xw.Book(input_file,ignore_read_only_recommended=True)
@@ -185,10 +185,11 @@ def main():
                     resultExcel = dataframe_difference(resultExcel, historyExcel, "left_only")
                     #print(resultExcel)
                     finalExcel=pd.concat([historyExcel,resultExcel])                                                                                               
+                    #print(finalExcel)
                 else:
                     finalExcel=resultExcel                    
 
-                #print(resultExcel)
+                #print(finalExcel)
                 finalExcel.drop_duplicates(keep='first', inplace=True)
                 finalExcel.reset_index(drop=True, inplace=True)       
                 #print(finalExcel)        
@@ -820,9 +821,10 @@ def dataframe_difference(first, second, which=None):
     
     N = 10000000000000000
     for column in listOfColumnNames:
-        df1[column] = np.round(df1[column]*N).astype('Int64')        
-        df2[column] = np.round(df2[column]*N).astype('Int64')
-
+        if(df1[column].isnull().sum() < len(df1[column])):
+            df1[column] = np.round(df1[column]*N).astype('Int64')        
+            df2[column] = np.round(df2[column]*N).astype('Int64')
+    
     comparison_df = df1.merge(df2,indicator=True,how='outer')    
     
     for column in listOfColumnNames:
