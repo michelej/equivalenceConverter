@@ -209,11 +209,12 @@ def main():
                 #print(newsExcel)
                                                             
                 flag_data = False
-                if(not finalExcel.empty):
-                    if(save_excel(output_dir+output_file, finalExcel)):
-                        log.info("Guardando fichero: "+output_dir+output_file)
-                        log.info("Proceso finalizado...")                        
+                
+                if(save_excel(output_dir+output_file, finalExcel)):
+                    log.info("Guardando fichero: "+output_dir+output_file)
+                    log.info("Proceso finalizado...")                        
 
+                    if(not finalExcel.empty):    
                         res_ids = newsExcel.iloc[:, 0] if not IS_SEDOL else newsExcel.iloc[:, 1]                        
                         if(len(res_ids)>0):
                             print("OK")
@@ -221,15 +222,15 @@ def main():
                             for ids in res_ids:
                                 print(str(ids) + ",OK,"+output_file)
                             flag_data = True
-                    else:
-                        print("ERROR : Fallo en la escritura del fichero de salida.")
-                        return
+                else:
+                    print("ERROR : Fallo en la escritura del fichero de salida.")
+                    return
                 
                 if(len(incidenceData)>0 or not equalRows.empty):
                     incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
                     #print(equalRows)
                     incidenceExcel=pd.concat([incidenceExcel,equalRows])                
-                    #print(incidenceExcel)
+                    print(incidenceExcel)
 
                     historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                     finalIncidenceExcel = None
@@ -478,7 +479,11 @@ def eval_value(commands, dataExcel, index):
     if(commands.get("below-text")):        
         belowText = commands["below-text"]
         belowText = belowText.lower()
-        f = dataExcel.index[dataExcel[col].str.lower() == belowText].tolist()
+        try:
+            f = dataExcel.index[dataExcel[col].str.lower() == belowText].tolist()
+        except Exception as e: 
+            raise InvalidFormat("[Value] La columna no es valida para el comando: " + str(commands))
+
         if(len(f) > 0):
             row = f[0]+1  # Si lo consigue dame la siguiente fila
         else:
