@@ -112,10 +112,12 @@ def main():
         except OSError as e:
             log.error("Error: " + str(e))
             print("ERROR : Fichero de equivalencias no encontrado")
+            log.error("ERROR : Fichero de equivalencias no encontrado")
             return 
         except Exception as e:
             log.error("Error: " + str(e))
             print("ERROR : Fichero de equivalencias ERRONEO")
+            log.error("ERROR : Fichero de equivalencias ERRONEO")
             return 
         
         log.info("Procesando fichero: " + input_file)
@@ -130,12 +132,16 @@ def main():
                 wb = xw.Book(input_file,ignore_read_only_recommended=True)
                 active_sheet_name = wb.sheets.active.name                
                 wb.close()
-                app.quit()
-                dataExcel = pd.read_excel(input_file, sheet_name=active_sheet_name, header=None)
-                dataExcel=dataExcel.replace('\n', '',regex=True).replace('\r','',regex=True)
+                app.quit()           
+
+                dataExcel = pd.read_excel(input_file,sheet_name=active_sheet_name, header=None,parse_dates=True,dayfirst=False)               
+                dataExcel = dataExcel.replace('\n', '',regex=True).replace('\r','',regex=True)
         except Exception as e: 
             print("ERROR : No se pudo abrir el fichero a procesar. "+ str(e))
+            log.error("ERROR : No se pudo abrir el fichero a procesar. "+ str(e))
             return        
+
+        #print(dataExcel)        
 
         firstLineExists = gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_SEDOL,True)       
         outputData=[]
@@ -218,19 +224,22 @@ def main():
                         res_ids = newsExcel.iloc[:, 0] if not IS_SEDOL else newsExcel.iloc[:, 1]                        
                         if(len(res_ids)>0):
                             print("OK")
+                            log.info("OK")
                             flag_ok = True
                             for ids in res_ids:
                                 print(str(ids) + ",OK,"+output_file)
+                                log.info(str(ids) + ",OK,"+output_file)
                             flag_data = True
                 else:
                     print("ERROR : Fallo en la escritura del fichero de salida.")
+                    log.error("ERROR : Fallo en la escritura del fichero de salida.")
                     return
                 
                 if(len(incidenceData)>0 or not equalRows.empty):
                     incidenceExcel = pd.DataFrame(incidenceData,columns=fields) 
                     #print(equalRows)
                     incidenceExcel=pd.concat([incidenceExcel,equalRows])                
-                    print(incidenceExcel)
+                    #print(incidenceExcel)
 
                     historyIncidenceExcel = load_excel(output_dir+incidence_file,fields)
                     finalIncidenceExcel = None
@@ -255,28 +264,37 @@ def main():
                         err_isins = newsIncidenceExcel.iloc[:, 0]   
                         if(len(err_isins)>0):
                             if(flag_ok ==False):
-                                print("OK")                        
+                                print("OK")  
+                                log.info("OK")                      
                             for isin in err_isins:
                                 if(not pd.isna(isin)):                            
-                                    print(isin +",ERROR,"+incidence_file)     
+                                    print(isin +",ERROR,"+incidence_file)
+                                    log.info(isin +",ERROR,"+incidence_file)   
                             flag_data = True
                     else:
-                        print("ERROR : Fallo en la escritura del fichero de incidencias.")                    
+                        print("ERROR : Fallo en la escritura del fichero de incidencias.")
+                        log.error("ERROR : Fallo en la escritura del fichero de incidencias.")
                 
                 if(flag_data == False):
                     print("NO DATA: No se encontraron datos para procesar")
+                    log.info("NO DATA: No se encontraron datos para procesar")
             else:
                 if(error_format_match == True):
                     print("ERROR : El formato para este excel no es correcto: " + process_type + " - " + process_id)
+                    log.error("ERROR : El formato para este excel no es correcto: " + process_type + " - " + process_id)
                 elif(len(outputData) == 0 and len(incidenceData) == 0):
                     print("NO DATA: No se encontraron datos para procesar")
+                    log.error("NO DATA: No se encontraron datos para procesar")
                 else:    
                     print("ERROR") 
+                    log.error("ERROR")
         except (InvalidFormat) as e:            
             print("ERROR : " + str(e))
+            log.error("ERROR : " + str(e))
         except Exception as e:                
             log.error(e)
             print("ERROR : Ha ocurrido un error inesperado.")
+            log.error("ERROR : Ha ocurrido un error inesperado.")
 
     elapsed_time = time.time() - start_time
     log.info("Tiempo de ejecución: " + str(elapsed_time) +" segundos")
@@ -592,12 +610,24 @@ def eval_date(commands, dataExcel, index):
             raise e
     else:        
         raise InvalidFormat("[Date] Formato invalido, falta la posicion de la fecha.")
-    
+        
     if(isinstance(dateValue, str) and commands.get("format")):                              
         try:
             dateValue = datetime.datetime.strptime(dateValue, commands.get("format"))           
         except ValueError as ve:
             raise InvalidFormat("[Date] Formato invalido, el formato de la fecha no es valido - " + commands.get("format"))
+    elif(commands.get("format")):
+        # %m - %B
+        first=False 
+        if(commands.get("format")[:2]=='%m' or commands.get("format")[:2]=='%B'):
+            first=True
+        dateValue=pd.to_datetime(str(dateValue),dayfirst=first,infer_datetime_format=True)
+        dateValue = dateValue.date()
+        #dateValue = dateValue.strftime(commands.get("format"))
+        #try:
+        #    dateValue = datetime.datetime.strptime(dateValue, "%d/%m/%Y")           
+        #except ValueError as ve:
+        #    raise InvalidFormat("[Date] Formato invalido, el formato de la fecha no es valido - " + commands.get("format"))
 
     if(not check_field_type(dateValue,'date')):
         raise InvalidFormat("[Date] Formato invalido, no se encontro una fecha en la posicion.")    
@@ -708,7 +738,7 @@ def check_field_type(value,field_type):
         if(isinstance(value, float) or isinstance(value, int)):    
             return True
     elif(field_type == "date"):               
-        if(isinstance(value, pd._libs.tslibs.timestamps.Timestamp) or isinstance(value, datetime.datetime)):
+        if(isinstance(value, pd._libs.tslibs.timestamps.Timestamp) or isinstance(value, datetime.datetime) or isinstance(value, datetime.date)):
             return True
     elif(field_type == "percentage"):
         if(isinstance(value, float)):
