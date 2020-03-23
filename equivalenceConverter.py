@@ -12,6 +12,8 @@ import xlwings as xw
 import re
 import traceback
 
+# pip install pandas , xlwings , simplelogging , xlrd , openpyxl
+
 class NullValue(Exception):   
    pass
 
