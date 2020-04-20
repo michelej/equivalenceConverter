@@ -12,6 +12,9 @@ import xlwings as xw
 import re
 import traceback
 
+import signal
+import threading
+
 # pip install pandas , xlwings , simplelogging , xlrd , openpyxl
 
 class NullValue(Exception):   
@@ -37,6 +40,10 @@ logger_console = False  # log to console
 pd.set_option("display.precision", 16)
 
 def main():
+    timeout=1200
+    wd = Watchdog(timeout)
+    wd.start()
+
     IS_SEDOL = False    
 
     incidence_file = None
@@ -855,8 +862,7 @@ def dataframe_difference(first, second, which=None):
     df2 = second.copy()          
     filteredColumns = df1.dtypes[df1.dtypes == np.float_]    
     listOfColumnNames = list(filteredColumns.index)
-
-    
+   
     #N = 100000000000000000
     columnConverted = []
 
@@ -900,6 +906,34 @@ def match_dataframes_types(df1,df2):
                     df1[col] = df1[col].astype(df2[col].dtype)
             else:
                 df1[col]=df1[col].astype(df2[col].dtype)
+
+class Watchdog():
+    def __init__(self, timeout=10):
+        self.timeout = timeout
+        self._t = None
+
+    def do_expire(self):
+        os.kill(os.getpid(),signal.SIGTERM)
+
+    def _expire(self):
+        print("ERROR")
+        log.error("ERROR , El tiempo de ejecución ha superado el limite y se ha cerrado.")
+        self.do_expire()
+
+    def start(self):
+        if self._t is None:
+            self._t = threading.Timer(self.timeout, self._expire)
+            self._t.start()
+
+    def stop(self):
+        if self._t is not None:
+            self._t.cancel()
+            self._t = None
+
+    def refresh(self):
+        if self._t is not None:
+             self.stop()
+             self.start()
 
 if __name__ == '__main__':
     main()
