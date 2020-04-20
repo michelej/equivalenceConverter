@@ -855,17 +855,28 @@ def dataframe_difference(first, second, which=None):
     df2 = second.copy()          
     filteredColumns = df1.dtypes[df1.dtypes == np.float_]    
     listOfColumnNames = list(filteredColumns.index)
+
     
-    N = 10000000000000000
+    #N = 100000000000000000
+    columnConverted = []
+
     for column in listOfColumnNames:
         if(df1[column].isnull().sum() < len(df1[column])):
+            num = 0            
+            for item in df1[column]:
+                n = str(item).split(".")
+                if(len(n[1]) > num):
+                    num = len(n[1])
+            
+            N = 10 ** num 
+            columnConverted.append({'name':column,'val':N})                     
             df1[column] = np.round(df1[column]*N).astype('Int64')        
             df2[column] = np.round(df2[column]*N).astype('Int64')
     
     comparison_df = df1.merge(df2,indicator=True,how='outer')    
-    
-    for column in listOfColumnNames:
-        comparison_df[column] = comparison_df[column] / N     
+  
+    for column in columnConverted:       
+        comparison_df[column['name']] = comparison_df[column['name']] / column['val']    
 
     if which is None:
         diff_df = comparison_df[comparison_df['_merge'] != 'both']
