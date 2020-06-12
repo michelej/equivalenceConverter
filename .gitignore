@@ -6,3 +6,6 @@
 /__pycache__/
 .vscode
 /salida/
+.xlsx
+.xls
+.txt

@@ -360,6 +360,10 @@ def gather_data_from_excel(dataExcel,filter_func,fields,formulas,field_types,IS_
                     if((i == 1 and not IS_SEDOL) or (i == 2 and IS_SEDOL)):
                         errorsFound = True
                         #rowResult.append("ERROR")
+                    #TODO: FIX THIS
+                    #if(not check_field_type(dataResult, field_types[i])):
+                    #    errorsFound = True
+
                 except InvalidFormat as e:
                     errorsFound = True
                     log.error("Error en el campo ["+fields[i]+"]  -  " + str(e) + " ISIN(" + str(row_id) + ")")
@@ -869,9 +873,9 @@ def dataframe_difference(first, second, which=None):
     for column in listOfColumnNames:
         if(df1[column].isnull().sum() < len(df1[column])):
             num = 0            
-            for item in df1[column]:
+            for item in df1[column]:                
                 n = str(item).split(".")
-                if(len(n[1]) > num):
+                if(len(n) > 1 and len(n[1]) > num):
                     num = len(n[1])
             
             N = 10 ** num 

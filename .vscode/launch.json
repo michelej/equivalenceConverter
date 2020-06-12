@@ -3,27 +3,66 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [
-        
+    "configurations": [        
         {
-            "name": "Python 1",
+            "name": "Bloomberg",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/equivalenceConverter.py",
             "console": "integratedTerminal",
-            "args" : ["FINALES_TRADICIONALES", "16" , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\Aberdeen Standard SICAV I Distribution Summary 30.06.2019.xlsx" 
-                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\salida\\" 
-                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+            "args" : ["FINALES_TRADICIONALES", "44" , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\Bloomberg March 2020 Monthly.xls" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
         },
         {
-            "name": "Python 2",
+            "name": "Aberdeen",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/equivalenceConverter.py",
             "console": "integratedTerminal",
-            "args" : ["FINALES_UK", "16" , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\266850 GMAI Confirmed Rates XD 1.5.2019.xlsx" 
-                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\salida\\" 
-                , "E:\\Documentos\\Documentos\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
-        }
+            "args" : ["FINALES_TRADICIONALES", "16" , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\Aberdeen Standard SICAV I Distribution Summary 30.06.2019.xlsx" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        },
+        {
+            "name": "LordAbbet",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/equivalenceConverter.py",
+            "console": "integratedTerminal",
+            "args" : ["FINALES_TRADICIONALES", "25" , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\Lord Abbett 6.28.19 Distribution Summary.xlsx" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        },
+        {
+            "name": "allfunds_daily_rate",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/equivalenceConverter.py",
+            "console": "integratedTerminal",
+            "args" : ["DATOS_PARA_EVENTOS", "2" , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\allfunds_daily_rate.csv" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        },
+        {
+            "name": "Detail dividend",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/equivalenceConverter.py",
+            "console": "integratedTerminal",
+            "args" : ["FINALES_TRADICIONALES", "46" , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\DETAIL DIVIDEND - Monthly Funds per closing 12.2019 - MDSP.xlsx" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        },
+        {
+            "name": "BMO Output",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/equivalenceConverter.py",
+            "console": "integratedTerminal",
+            "args" : ["FINALES_UK", "20" , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\output(1).xlsx" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\salida\\" 
+                , "C:\\Users\\miche\\Documents\\Projects\\Python_\\equivalenceConverter\\fichero_equivalencias.xlsx"]               
+        } 
     ]
 }
